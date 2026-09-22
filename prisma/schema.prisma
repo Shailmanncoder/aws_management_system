@@ -1,0 +1,734 @@
+// Stratus data model.
+//
+// Tenant-isolation rule: every tenant-owned table carries `organizationId`, and every
+// repository query filters on it. Composite indexes lead with `organizationId` so tenant-scoped
+// queries are index-driven. Raw AWS API responses are never stored — only normalised fields.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Authentication (Better Auth) ─────────────────────────────
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  twoFactorEnabled Boolean? @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions     Session[]
+  accounts     Account[]
+  twoFactors   TwoFactor[]
+  memberships  OrganizationMember[]
+  invitations  Invitation[]         @relation("InvitedBy")
+  auditEvents  AuditLog[]
+  syncRequests SyncJob[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+model TwoFactor {
+  id                      String    @id @default(uuid()) @db.Uuid
+  secret                  String
+  backupCodes             String
+  userId                  String    @db.Uuid
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factors")
+}
+
+/// Better Auth's own rate-limit storage (auth endpoints only).
+model RateLimit {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("auth_rate_limits")
+}
+
+// ───────────────────────────── Tenancy & RBAC ─────────────────────────────
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  PROVISIONER
+  VIEWER
+  BILLING_VIEWER
+  SECURITY_VIEWER
+}
+
+model Organization {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String
+  slug              String   @unique
+  /// Monotonic counter bumped after each successful sync; part of every cache key.
+  inventoryVersion  Int      @default(0)
+  /// Operational (mutating) AWS actions. Off by default; requires a separate action role.
+  provisioningGuardrails Json?
+  actionModeEnabled Boolean  @default(false)
+  /// Tag keys every resource should carry (optimisation "missing required tags" rule).
+  requiredTagKeys   String[] @default(["env", "team"])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  members          OrganizationMember[]
+  invitations      Invitation[]
+  awsAccounts      AwsAccount[]
+  awsConnections   AwsConnection[]
+  resources        AwsResource[]
+  tags             ResourceTag[]
+  costRecords      CostRecord[]
+  securityFindings SecurityFinding[]
+  optimizations    OptimizationFinding[]
+  alertRules       AlertRule[]
+  alerts           Alert[]
+  auditLogs        AuditLog[]
+  syncJobs         SyncJob[]
+  metricSummaries  MetricSummary[]
+  actionRequests   ActionRequest[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Invitation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole
+  /// SHA-256 of the one-time invitation token. The raw token is shown once and never stored.
+  tokenHash      String       @unique
+  invitedById    String       @db.Uuid
+  invitedBy      User         @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+// ───────────────────────────── AWS accounts & connections ─────────────────────────────
+
+enum ConnectionMethod {
+  ASSUME_ROLE
+  ACCESS_KEY
+}
+
+enum ConnectionStatus {
+  PENDING
+  CONNECTED
+  PERMISSION_PROBLEM
+  CONNECTION_FAILED
+  ROLE_UNAVAILABLE
+  NEEDS_ATTENTION
+  DISCONNECTED
+}
+
+enum SyncState {
+  NEVER
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+model AwsAccount {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// 12-digit AWS account ID as declared by the user and verified via GetCallerIdentity.
+  awsAccountId   String       @db.VarChar(12)
+  displayName    String
+  partition      String       @default("aws")
+  /// 1 = Cost Explorer data explicitly filtered to this AWS account. Legacy data is hidden until refreshed.
+  costScopeVersion Int @default(0)
+  invoiceSummaries Json?
+  invoiceSyncedAt DateTime?
+  invoiceSyncError String?
+  securityScannedAt DateTime?
+  securityCoverage  Json?
+  lastSyncedAt   DateTime?
+  syncStatus     SyncState    @default(NEVER)
+  /// Sanitised, user-safe message only.
+  syncError      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  connection       AwsConnection?
+  resources        AwsResource[]
+  costRecords      CostRecord[]
+  securityFindings SecurityFinding[]
+  optimizations    OptimizationFinding[]
+  syncJobs         SyncJob[]
+  alerts           Alert[]
+
+  @@unique([organizationId, awsAccountId])
+  @@unique([organizationId, id])
+  @@map("aws_accounts")
+}
+
+/// Connection metadata. Temporary STS credentials are NEVER stored here (or anywhere).
+model AwsConnection {
+  id                   String           @id @default(uuid()) @db.Uuid
+  organizationId       String           @db.Uuid
+  organization         Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId      String           @unique @db.Uuid
+  awsAccount           AwsAccount       @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  method               ConnectionMethod @default(ASSUME_ROLE)
+  roleArn              String?
+  /// Optional separately-deployed role for operational actions (never the read-only role).
+  provisionerRoleArn   String?
+  provisionerExternalIdEnc String?
+  provisionerExternalIdHash String? @unique
+  provisioningEnabled Boolean @default(false)
+  actionRoleArn        String?
+  /// Envelope-encrypted ExternalId (see src/server/security/envelope.ts).
+  externalIdEnc        String
+  /// Envelope-encrypted access key id / secret — ACCESS_KEY method only, disabled by default.
+  accessKeyIdEnc       String?
+  secretAccessKeyEnc   String?
+  /// Non-reversible fingerprint (last 4 of key id) for display.
+  accessKeyHint        String?
+  credentialRotatedAt  DateTime?
+  status               ConnectionStatus @default(PENDING)
+  statusMessage        String?
+  /// Per-capability permission diagnostics: { capability: { status, missingAction? } }.
+  diagnostics          Json?
+  /// Regions reported as enabled by ec2:DescribeRegions at last validation.
+  enabledRegions       String[]
+  /// Optional customer-selected subset of regions to scan (empty = all enabled).
+  regionAllowlist      String[]
+  lastValidatedAt      DateTime?
+  createdById          String           @db.Uuid
+  disconnectedAt       DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([organizationId, status])
+  @@map("aws_connections")
+}
+
+// ───────────────────────────── Inventory ─────────────────────────────
+
+model AwsResource {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId String       @db.Uuid
+  awsAccount      AwsAccount   @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  /// e.g. "ec2:instance", "s3:bucket", "rds:db-instance".
+  resourceType    String
+  /// AWS region, or "global" for global services.
+  region          String
+  /// Native AWS identifier (instance id, bucket name, ...).
+  resourceId      String
+  arn             String?
+  name            String?
+  state           String?
+  /// Normalised, application-selected attributes (validated per type). Never raw API output.
+  attributes      Json
+  /// Lower-cased concatenation used by global search (trigram indexed).
+  searchText      String
+  firstSeenAt     DateTime     @default(now())
+  lastSeenAt      DateTime     @default(now())
+  /// Set when a sync no longer observes the resource.
+  deletedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tags             ResourceTag[]
+  securityFindings SecurityFinding[]
+  optimizations    OptimizationFinding[]
+  metricSummaries  MetricSummary[]
+
+  @@unique([awsAccountRefId, resourceType, region, resourceId])
+  @@index([organizationId, resourceType, deletedAt])
+  @@index([organizationId, region])
+  @@index([organizationId, awsAccountRefId, resourceType])
+  @@map("aws_resources")
+}
+
+model ResourceTag {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resourceRefId  String       @db.Uuid
+  resource       AwsResource  @relation(fields: [resourceRefId], references: [id], onDelete: Cascade)
+  key            String
+  value          String
+
+  @@unique([resourceRefId, key])
+  @@index([organizationId, key, value])
+  @@map("resource_tags")
+}
+
+model MetricSummary {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resourceRefId  String       @db.Uuid
+  resource       AwsResource  @relation(fields: [resourceRefId], references: [id], onDelete: Cascade)
+  metricName     String
+  statistic      String
+  periodDays     Int
+  /// Null when CloudWatch returned no datapoints.
+  value          Float?
+  datapoints     Int
+  collectedAt    DateTime     @default(now())
+
+  @@unique([resourceRefId, metricName, statistic, periodDays])
+  @@index([organizationId])
+  @@map("metric_summaries")
+}
+
+// ───────────────────────────── Cost ─────────────────────────────
+
+enum CostGranularity {
+  DAILY
+  MONTHLY
+}
+
+enum CostDimension {
+  TOTAL
+  SERVICE
+  REGION
+  LINKED_ACCOUNT
+}
+
+model CostRecord {
+  id              String          @id @default(uuid()) @db.Uuid
+  organizationId  String          @db.Uuid
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId String          @db.Uuid
+  awsAccount      AwsAccount      @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  granularity     CostGranularity
+  /// Start of the period (UTC date).
+  periodStart     DateTime        @db.Date
+  dimension       CostDimension
+  /// Service name / region / linked account id; "" for TOTAL.
+  dimensionKey    String
+  /// UnblendedCost amount as reported by Cost Explorer.
+  amount          Decimal         @db.Decimal(18, 6)
+  unit            String
+  /// Cost Explorer "Estimated" flag — the period is not finalised.
+  estimated       Boolean
+  fetchedAt       DateTime        @default(now())
+
+  @@unique([awsAccountRefId, granularity, periodStart, dimension, dimensionKey])
+  @@index([organizationId, granularity, dimension, periodStart])
+  @@map("cost_records")
+}
+
+// ───────────────────────────── Findings ─────────────────────────────
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFORMATIONAL
+}
+
+enum FindingSource {
+  STRATUS_RULE
+  GUARDDUTY
+  SECURITY_HUB
+}
+
+enum FindingStatus {
+  OPEN
+  RESOLVED
+  SUPPRESSED
+}
+
+model SecurityFinding {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @db.Uuid
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId String        @db.Uuid
+  awsAccount      AwsAccount    @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  resourceRefId   String?       @db.Uuid
+  resource        AwsResource?  @relation(fields: [resourceRefId], references: [id], onDelete: SetNull)
+  source          FindingSource
+  ruleId          String
+  /// Stable hash of (account, rule, resource) for idempotent upserts.
+  fingerprint     String
+  severity        Severity
+  title           String
+  /// WHAT was detected.
+  description     String
+  /// WHY it matters.
+  rationale       String
+  /// EVIDENCE — the specific configuration values observed.
+  evidence        Json
+  /// HOW to investigate / remediate.
+  remediation     String
+  region          String
+  status          FindingStatus @default(OPEN)
+  firstSeenAt     DateTime      @default(now())
+  lastSeenAt      DateTime      @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, severity])
+  @@map("security_findings")
+}
+
+enum DataBasis {
+  /// Derived directly from AWS-reported configuration/billing.
+  CONFIRMED
+  /// Rule-of-thumb based on observed signals; requires human validation.
+  HEURISTIC
+  /// Savings computed from price assumptions + usage data.
+  ESTIMATED
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model OptimizationFinding {
+  id                      String        @id @default(uuid()) @db.Uuid
+  organizationId          String        @db.Uuid
+  organization            Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId         String        @db.Uuid
+  awsAccount              AwsAccount    @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  resourceRefId           String?       @db.Uuid
+  resource                AwsResource?  @relation(fields: [resourceRefId], references: [id], onDelete: SetNull)
+  ruleId                  String
+  fingerprint             String
+  category                String
+  title                   String
+  reason                  String
+  evidence                Json
+  impact                  String
+  recommendation          String
+  limitations             String
+  dataBasis               DataBasis
+  confidence              Confidence
+  /// Only populated when pricing + usage data support an estimate.
+  estimatedMonthlySavings Decimal?      @db.Decimal(14, 2)
+  savingsCurrency         String?
+  region                  String
+  status                  FindingStatus @default(OPEN)
+  firstSeenAt             DateTime      @default(now())
+  lastSeenAt              DateTime      @default(now())
+  resolvedAt              DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, category])
+  @@map("optimization_findings")
+}
+
+// ───────────────────────────── Alerts ─────────────────────────────
+
+enum AlertType {
+  COST_THRESHOLD
+  COST_ANOMALY
+  PUBLIC_EXPOSURE
+  NEW_SECURITY_FINDING
+  EC2_STOPPED
+  SYNC_FAILURE
+  CONFIG_CHANGE
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model AlertRule {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           AlertType
+  name           String
+  enabled        Boolean      @default(true)
+  /// Type-specific config, validated with Zod on write and read.
+  config         Json
+  /// Delivery channels. Only IN_APP is implemented; see docs/THREAT_MODEL.md (SSRF) for webhooks.
+  channels       String[]     @default(["IN_APP"])
+  createdById    String       @db.Uuid
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  alerts Alert[]
+
+  @@index([organizationId, type, enabled])
+  @@map("alert_rules")
+}
+
+model Alert {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ruleId          String?      @db.Uuid
+  rule            AlertRule?   @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  awsAccountRefId String?      @db.Uuid
+  awsAccount      AwsAccount?  @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  type            AlertType
+  severity        Severity
+  title           String
+  message         String
+  /// Minimal, non-sensitive context (ids/counts only).
+  context         Json?
+  dedupeKey       String
+  status          AlertStatus  @default(OPEN)
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?      @db.Uuid
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, dedupeKey])
+  @@index([organizationId, status, createdAt])
+  @@map("alerts")
+}
+
+// ───────────────────────────── Audit ─────────────────────────────
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
+/// Append-only. UPDATE/DELETE are blocked by a database trigger (see migration).
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actorUserId    String?       @db.Uuid
+  actor          User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorType      String        @default("USER")
+  action         String
+  targetType     String?
+  targetId       String?
+  requestId      String?
+  outcome        AuditOutcome
+  /// Redacted metadata. Never contains secrets.
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+// ───────────────────────────── Jobs ─────────────────────────────
+
+enum JobType {
+  INVENTORY_SYNC
+  COST_SYNC
+  METRICS_COLLECTION
+  SECURITY_SCAN
+  OPTIMIZATION_ANALYSIS
+  ALERT_EVALUATION
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum JobTrigger {
+  MANUAL
+  SCHEDULED
+  SYSTEM
+}
+
+model SyncJob {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  awsAccountRefId String?      @db.Uuid
+  awsAccount      AwsAccount?  @relation(fields: [awsAccountRefId], references: [id], onDelete: Cascade)
+  type            JobType
+  status          JobStatus    @default(QUEUED)
+  trigger         JobTrigger
+  requestedById   String?      @db.Uuid
+  requestedBy     User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  attempts        Int          @default(0)
+  maxAttempts     Int          @default(3)
+  runAfter        DateTime     @default(now())
+  /// Worker lease: another worker may reclaim a RUNNING job once the lease expires.
+  lockedBy        String?
+  leaseExpiresAt  DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  /// Sanitised summary for users.
+  errorSummary    String?
+  /// Per region/service outcome: [{ region, service, status, count, error? }].
+  progress        Json?
+  /// Counters: resources, apiCalls, throttles, durationMs.
+  metrics         Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([status, runAfter])
+  @@index([organizationId, createdAt])
+  @@map("sync_jobs")
+}
+
+// ───────────────────────────── Operational actions (framework, disabled by default) ─────────────────────────────
+
+enum ActionStatus {
+  PENDING_CONFIRMATION
+  EXECUTING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  REJECTED
+}
+
+model ActionRequest {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resourceRefId  String       @db.Uuid
+  action         String
+  status         ActionStatus @default(PENDING_CONFIRMATION)
+  requestedById  String       @db.Uuid
+  confirmedById  String?      @db.Uuid
+  /// SHA-256 of the confirmation token.
+  confirmationHash String
+  expiresAt      DateTime
+  resultMessage  String?
+  requestId      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@map("action_requests")
+}
+
+// ───────────────────────────── Platform rate limiting ─────────────────────────────
+
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+  expiresAt   DateTime
+
+  @@id([key, windowStart])
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
+}
+
+/// Durable plans remain as receipts, including ambiguous AWS outcomes. No automatic replay.
+model ProvisioningPlan {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  accountId String @db.Uuid
+  connectionId String @db.Uuid
+  userId String @db.Uuid
+  idempotencyKey String @db.Uuid
+  service String
+  configuration Json
+  configurationHash String
+  review Json
+  status String @default("PLANNED")
+  resourceId String?
+  resultMessage String?
+  requestId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, userId, idempotencyKey], map: "provisioning_plans_org_user_key")
+  @@index([organizationId, accountId, status], map: "provisioning_plans_org_account_status")
+  @@map("provisioning_plans")
+}

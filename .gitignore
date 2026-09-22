@@ -1,0 +1,46 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# builds
+/.next/
+/out/
+/build
+/dist
+*.tsbuildinfo
+next-env.d.ts
+/src/generated/
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/tests/e2e/.auth/
+
+# env & secrets — only the placeholder template is committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+.secrets/
+credentials
+.aws/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# misc
+.DS_Store
+.vercel
+.idea/
+.vscode/*
+!.vscode/extensions.json

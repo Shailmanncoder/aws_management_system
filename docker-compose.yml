@@ -1,0 +1,49 @@
+# Local development stack. NOT for production (see docs/DEPLOYMENT.md).
+# Credentials below are local-only placeholders bound to 127.0.0.1.
+name: stratus
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stratus
+      POSTGRES_PASSWORD: stratus_local_dev_only
+      POSTGRES_DB: stratus
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/db/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stratus -d stratus"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Optional: run the full app + worker in containers (`docker compose --profile app up`).
+  web:
+    profiles: ["app"]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://stratus:stratus_local_dev_only@postgres:5432/stratus
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: ["node", "dist/worker.mjs"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://stratus:stratus_local_dev_only@postgres:5432/stratus
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

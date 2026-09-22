@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: stratus
+          POSTGRES_PASSWORD: stratus_ci_only
+          POSTGRES_DB: stratus
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stratus" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://stratus:stratus_ci_only@127.0.0.1:5432/stratus_test
+      E2E_DATABASE_URL: postgresql://stratus:stratus_ci_only@127.0.0.1:5432/stratus_e2e
+      DATABASE_URL: postgresql://stratus:stratus_ci_only@127.0.0.1:5432/stratus_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Create test databases
+        run: |
+          PGPASSWORD=stratus_ci_only psql -h 127.0.0.1 -U stratus -d stratus -c "CREATE DATABASE stratus_test" -c "CREATE DATABASE stratus_e2e"
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm ci
+      - name: Dependency audit (fail on high/critical)
+        run: npm audit --audit-level=high
+      - name: Source self-review gate
+        run: npm run check:source
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Production build
+        run: npm run build && npm run worker:build
+      - name: E2E tests
+        run: npx playwright install --with-deps chromium && npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --target runtime -t stratus:ci .
+      - name: Scan image (Trivy, fail on high/critical)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: stratus:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

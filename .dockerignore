@@ -1,0 +1,19 @@
+# Never send secrets or local state to the build context.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws
+secrets
+.git
+node_modules
+.next
+dist
+coverage
+test-results
+playwright-report
+tests
+docs
+.claude
+*.log

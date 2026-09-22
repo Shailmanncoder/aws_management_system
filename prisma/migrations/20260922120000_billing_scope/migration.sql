@@ -1,0 +1,1 @@
+ALTER TABLE "aws_accounts" ADD COLUMN "costScopeVersion" INTEGER NOT NULL DEFAULT 0, ADD COLUMN "invoiceSummaries" JSONB, ADD COLUMN "invoiceSyncedAt" TIMESTAMP(3), ADD COLUMN "invoiceSyncError" TEXT;
