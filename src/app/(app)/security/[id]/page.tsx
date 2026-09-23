@@ -8,7 +8,10 @@ import { SeverityBadge, type SeverityValue } from "@/components/findings/severit
 import { KeyValue, Mono } from "@/components/resource/kv";
 import { FindingAction } from "@/components/security/finding-action";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BookOpen } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
+import { walkthroughForRule } from "@/lib/walkthroughs";
+import { buildHref } from "@/lib/url";
 import { resourceHref } from "@/lib/resource-links";
 import { getSecurityFinding } from "@/server/services/findings-service";
 import { getPageAccess } from "@/server/services/workspace-context";
@@ -23,6 +26,11 @@ export default async function FindingPage({ params }: PageProps<"/security/[id]"
   if (!access) return <NoAccess what="security findings" />;
   const f = await getSecurityFinding(access, id);
   if (!f) notFound();
+  // A step-by-step fix exists for most rules; link to it with this finding's own resource filled in.
+  const guide = walkthroughForRule(f.ruleId);
+  const guideHref = guide
+    ? buildHref(`/guides/${guide.id}`, {}, { region: f.region, resource: f.resource?.resourceId ?? null })
+    : null;
   return (
     <div className="space-y-4">
       <PageHeader actions={<SectionActions access={access} account={f.awsAccountRefId} label="Refresh" />} eyebrow={<Link href="/security" className="hover:underline">Security Center</Link>} title={f.title} description={<span className="flex flex-wrap items-center gap-2"><SeverityBadge severity={f.severity as SeverityValue} /> {f.status} · {f.source.replaceAll("_", " ")}</span>} />
@@ -33,6 +41,14 @@ export default async function FindingPage({ params }: PageProps<"/security/[id]"
             <p>{f.description}</p>
             <p><strong>Why it matters.</strong> {f.rationale}</p>
             <p><strong>How to investigate / remediate.</strong> {f.remediation}</p>
+            {guide && guideHref && (
+              <p>
+                <Link href={guideHref} className="inline-flex items-center gap-1.5 text-primary hover:underline">
+                  <BookOpen className="size-4" aria-hidden />
+                  Show me exactly where to click: {guide.title}
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>

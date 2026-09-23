@@ -4,7 +4,9 @@ Stratus is a multi-tenant SaaS platform that securely connects AWS accounts thro
 cross-account IAM role** (`sts:AssumeRole` + a unique ExternalId), synchronises a normalised
 inventory across every enabled region, and presents dashboards for infrastructure, Cost Explorer
 spend, CloudWatch monitoring, security posture, optimisation opportunities, alerts and an
-append-only audit trail — updating live as new data arrives.
+append-only audit trail — updating live as new data arrives. It also ships **guided walkthroughs**
+that explain, click by click, how to create and fix things in the AWS console, with the steps
+filled in from your own inventory.
 
 > **Honest data.** Nothing is fabricated. When AWS does not return data (permission denied, service
 > not enabled, billing unavailable, no CloudWatch datapoints) the UI says so and explains why.
@@ -17,8 +19,9 @@ append-only audit trail — updating live as new data arrives.
 1. [Architecture](#architecture) · 2. [Local setup](#local-setup) · 3. [Environment variables](#environment-variables) ·
 4. [Database](#database) · 5. [Docker](#docker) · 6. [AWS onboarding](#aws-onboarding) ·
 7. [Security model](#security-model) · 8. [RBAC](#rbac) · 9. [Data model](#data-model) ·
-10. [Real-time updates](#real-time-updates) · 11. [Testing](#testing) · 12. [Deployment](#deployment) ·
-13. [Troubleshooting](#troubleshooting) · 14. [Known limitations & roadmap](#known-limitations--roadmap)
+10. [Real-time updates](#real-time-updates) · 11. [Provisioning](#provisioning-creating-resources) ·
+12. [Guided walkthroughs](#guided-walkthroughs) · 13. [Testing](#testing) · 14. [Deployment](#deployment) ·
+15. [Troubleshooting](#troubleshooting) · 16. [Known limitations & roadmap](#known-limitations--roadmap)
 
 Further reading: [ARCHITECTURE](docs/ARCHITECTURE.md) · [IAM](docs/IAM.md) · [RBAC](docs/RBAC.md) ·
 [THREAT_MODEL](docs/THREAT_MODEL.md) · [DEPLOYMENT](docs/DEPLOYMENT.md) · [BACKUPS](docs/BACKUPS.md) ·
@@ -228,6 +231,75 @@ Owner · Admin · Operator · Viewer · Billing Viewer · Security Viewer. Full 
 - Inventory is as fresh as the last sync — Stratus polls AWS APIs; it does not yet consume EventBridge
   change events (roadmap).
 
+## Provisioning (creating resources)
+
+Stratus can create a small, fixed set of resources in a connected account. This is opt-in per
+connection, uses a **second IAM role** (`StratusProvisionerRole-<connectionId>`) with its own
+ExternalId, and never touches the read-only role.
+
+| Service | What it creates | Fixed secure defaults |
+| --- | --- | --- |
+| `ec2` | One Linux instance | Amazon Linux 2023, encrypted gp3, IMDSv2 required, approved instance types |
+| `s3` | One bucket | Block Public Access on, SSE-S3, ACLs disabled, versioning, name scoped to the connection |
+| `vpc` | One VPC | Private RFC 1918 range only, DNS enabled, **no** internet gateway, NAT or routes |
+| `subnet` | One subnet | Inside its VPC, non-overlapping, auto-assign public IPv4 permanently off |
+
+Every creation goes plan → review → typed confirmation → apply, with the plan hashed so the thing
+you confirm is the thing that gets built. Each apply re-checks permissions, the connection and the
+guardrails immediately before the first mutating call, runs an AWS dry-run first, and verifies the
+created resource against the approved plan afterwards.
+
+**Networks are refused, not just warned about, when:** the range is public address space, it is
+outside /16-/28, it is a host address rather than a network, it overlaps an existing VPC or a
+sibling subnet, the subnet falls outside its VPC's range, or the VPC belongs to another account.
+Overlapping ranges are rejected because they cannot be peered or reached by VPN afterwards, and
+neither a VPC's primary CIDR nor a subnet's range can be changed once created.
+
+What the provisioner role **cannot** do, by policy: delete anything, create or attach internet
+gateways or NAT gateways, add routes, modify subnet attributes, peer VPCs, or `iam:PassRole`. A
+network Stratus creates is private until someone deliberately opens it in the AWS console.
+
+> **Upgrading an existing connection.** VPC and subnet support added new IAM actions. Connections
+> that deployed the provisioner stack earlier must download the template again and update the
+> stack, or network creation fails with an AWS permission error.
+
+---
+
+## Guided walkthroughs
+
+`/guides` holds click-by-click runbooks for the AWS console: where each screen is
+(`Console → EC2 → Instances → Launch instances`), which button to press, what to type into each
+field and **why that value**, what it costs, how to check it worked and how to undo it.
+
+Four categories:
+
+| Category | Covers |
+| --- | --- |
+| Launch compute | Launching an EC2 instance with encrypted storage, IMDSv2 required and no public IP |
+| Storage and databases | A private, encrypted, versioned S3 bucket; an encrypted, private RDS instance with backups |
+| Networking basics | A VPC with public/private subnets and correct routing; a security group that references groups rather than CIDRs |
+| Fix a finding | One walkthrough per security rule Stratus can raise, linked from the finding itself |
+
+Two properties make these more than static documentation:
+
+- **They use your resources.** `{{vpcId}}`, `{{subnetId}}`, `{{securityGroupId}}` and `{{region}}`
+  are resolved from the workspace's own synchronised inventory
+  (`src/server/services/walkthrough-service.ts`), so the steps name real ids. When a value is not
+  available the token renders as a visible hint — a plausible-looking fake id is never invented.
+  The suggested security group is deliberately one that is *not* open to the internet.
+- **They are linked from findings.** Every finding shows "Show me exactly where to click", opening
+  the matching walkthrough with that finding's region and resource id already applied. A unit test
+  reads `security-rules.ts` and fails if a rule is added without a walkthrough.
+
+Console deep links are built by an allow-list (`src/lib/walkthroughs/console.ts`): the region is
+validated against the same catalogue the SDK uses and resource ids must match a known shape, so a
+link can never be pointed at a non-AWS host.
+
+Stratus itself performs none of these changes from this page — it holds a read-only role. Real
+provisioning is a separate, opt-in feature with its own role and a typed confirmation.
+
+---
+
 ## Testing
 
 ```bash
@@ -277,6 +349,12 @@ restore testing: [docs/BACKUPS.md](docs/BACKUPS.md). CI (`.github/workflows/ci.y
 - MFA is available per user but not yet enforceable per workspace; SSO/SAML not implemented.
 - Operational actions (start/stop/reboot) have a data model, permissions and IAM template but no UI
   yet; they remain disabled by default.
+- Provisioning creates one resource per plan. It does not create internet gateways, NAT gateways,
+  routes or route-table associations, so a new VPC has no internet path until you add one yourself
+  (the networking walkthrough covers this). Deletion is never offered.
+- Guided walkthroughs describe the AWS console as of the date they were written. AWS redesigns it
+  periodically, so a control may move; steps name what to search for as well as where it was. They
+  are not automatically checked against the live console.
 - AWS Resource Explorer is not used; global search uses Stratus's own synchronised index.
 - Savings estimates use public on-demand list prices (no Savings Plans/RI/EDP awareness) and CPU
   only for rightsizing (no memory without the CloudWatch agent).

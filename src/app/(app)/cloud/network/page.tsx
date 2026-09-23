@@ -1,4 +1,5 @@
 import { SectionActions } from "@/app/(app)/_components/section-actions";
+import { CreateResource } from "@/components/aws/create-resource";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -132,7 +133,7 @@ export default async function NetworkPage({ searchParams }: PageProps<"/cloud/ne
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Network explorer" actions={<SectionActions access={access} account={raw.account} />} description="VPCs, subnets, routing and security groups. Topology relationships are derived only from AWS configuration." />
+      <PageHeader title="Network explorer" actions={<SectionActions access={access} account={raw.account}>{access.can("provisioning:create") && (view === "vpcs" || view === "subnets") ? <CreateResource orgId={access.organizationId} service={view === "vpcs" ? "vpc" : "subnet"} /> : null}</SectionActions>} description="VPCs, subnets, routing and security groups. Topology relationships are derived only from AWS configuration." />
       <nav aria-label="Network views" className="-mx-1 flex gap-1 overflow-x-auto border-b">
         {VIEWS.map((v) => (
           <Link

@@ -88,6 +88,12 @@ export function ProvisioningSetup({
             Create a new stack using this template, acknowledge the named IAM
             role, wait for CREATE_COMPLETE, then validate and enable.
           </p>
+          <p className="text-sm">
+            <strong>Already deployed this stack?</strong> The template now also grants VPC and
+            subnet creation. Download it again and update the existing stack, otherwise creating a
+            network will fail with an AWS permission error. Nothing else changes, and updating
+            grants no deletion, routing or gateway permissions.
+          </p>
           <div className="flex gap-2">
             <Button
               disabled={busy}

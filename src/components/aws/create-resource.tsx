@@ -45,12 +45,54 @@ type Plan = {
   resultMessage: string | null;
 };
 const control = "w-full rounded-md border bg-background px-3 py-2 text-sm";
+
+export type ServiceKind = "ec2" | "s3" | "vpc" | "subnet";
+
+const LABELS: Record<ServiceKind, { short: string; long: string }> = {
+  ec2: { short: "instance", long: "EC2 instance" },
+  s3: { short: "bucket", long: "S3 bucket" },
+  vpc: { short: "VPC", long: "VPC" },
+  subnet: { short: "subnet", long: "subnet" },
+};
+/** Per-service form fields. Everything is re-validated by configurationSchema and again server-side. */
+function serviceFields(
+  service: ServiceKind,
+  f: FormData,
+  get: (k: string) => string,
+): Record<string, unknown> {
+  switch (service) {
+    case "ec2":
+      return {
+        architecture: get("instanceType").startsWith("t4g") ? "arm64" : "x86_64",
+        instanceType: get("instanceType"),
+        vpcId: get("vpcId"),
+        subnetId: get("subnetId"),
+        securityGroupIds: get("securityGroupIds")
+          .split(",")
+          .map((s) => s.trim()),
+        storageGiB: Number(get("storageGiB")),
+        publicIpv4: f.get("publicIpv4") === "on",
+        ...(get("keyName") ? { keyName: get("keyName") } : {}),
+      };
+    case "s3":
+      return { versioning: f.get("versioning") === "on" };
+    case "vpc":
+      return { cidr: get("cidr"), enableDnsHostnames: f.get("enableDnsHostnames") === "on" };
+    case "subnet":
+      return {
+        vpcId: get("vpcId"),
+        cidr: get("cidr"),
+        ...(get("availabilityZone") ? { availabilityZone: get("availabilityZone") } : {}),
+      };
+  }
+}
+
 export function CreateResource({
   orgId,
   service,
 }: {
   orgId: string;
-  service: "ec2" | "s3";
+  service: ServiceKind;
 }) {
   const router = useRouter(),
     base = `/api/v1/orgs/${orgId}/provisioning`;
@@ -103,22 +145,7 @@ export function CreateResource({
                 };
               })
           : [],
-        ...(service === "ec2"
-          ? {
-              architecture: get("instanceType").startsWith("t4g")
-                ? "arm64"
-                : "x86_64",
-              instanceType: get("instanceType"),
-              vpcId: get("vpcId"),
-              subnetId: get("subnetId"),
-              securityGroupIds: get("securityGroupIds")
-                .split(",")
-                .map((s) => s.trim()),
-              storageGiB: Number(get("storageGiB")),
-              publicIpv4: f.get("publicIpv4") === "on",
-              ...(get("keyName") ? { keyName: get("keyName") } : {}),
-            }
-          : { versioning: f.get("versioning") === "on" }),
+        ...serviceFields(service, f, get),
       });
       const key = requestKey ?? crypto.randomUUID();
       setRequestKey(key);
@@ -173,13 +200,13 @@ export function CreateResource({
             void load();
           }}
         >
-          + Create {service === "ec2" ? "instance" : "bucket"}
+          + Create {LABELS[service].short}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Create {service === "ec2" ? "EC2 instance" : "S3 bucket"}
+            Create {LABELS[service].long}
           </DialogTitle>
           <DialogDescription>
             Configure, review, then confirm creation in your AWS account.
@@ -330,11 +357,65 @@ export function CreateResource({
                   />
                 </label>
               </>
-            ) : (
+            ) : service === "s3" ? (
               <label className="flex gap-2 text-sm">
                 <input name="versioning" type="checkbox" defaultChecked />
                 Enable versioning
               </label>
+            ) : service === "vpc" ? (
+              <>
+                <label className="block text-sm">
+                  IPv4 CIDR block
+                  <Input name="cidr" required defaultValue="10.0.0.0/16" placeholder="10.0.0.0/16" />
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Use a private range (10.x, 172.16-31.x or 192.168.x), /16 to /28. This cannot be
+                  changed after creation, and it must not overlap any network you may later peer
+                  with or connect by VPN.
+                </p>
+                <label className="flex gap-2 text-sm">
+                  <input name="enableDnsHostnames" type="checkbox" defaultChecked />
+                  Enable DNS hostnames (needed for most AWS service integrations)
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  No internet gateway, NAT gateway or route to the internet is created. The VPC is
+                  private until you add those yourself.
+                </p>
+              </>
+            ) : (
+              <>
+                <label className="block text-sm">
+                  VPC
+                  <select name="vpcId" className={control} required>
+                    {options?.network
+                      .filter((n) => n.type === "ec2:vpc" && n.accountId === accountId)
+                      .map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {n.name} ({n.id}) · {n.region}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Only VPCs from synced inventory are listed. Pick one in the region selected above.
+                </p>
+                <label className="block text-sm">
+                  IPv4 CIDR block
+                  <Input name="cidr" required defaultValue="10.0.1.0/24" placeholder="10.0.1.0/24" />
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Must sit inside the VPC&apos;s range and not overlap an existing subnet. AWS
+                  reserves 5 addresses; a /24 leaves 251 usable. The range cannot be resized later.
+                </p>
+                <label className="block text-sm">
+                  Availability Zone (optional)
+                  <Input name="availabilityZone" placeholder="Leave blank to let AWS choose" />
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Left blank, Stratus picks a zone the VPC is not using yet, so a multi-zone layout
+                  happens by default. Auto-assign public IPv4 is always disabled.
+                </p>
+              </>
             )}
             <details>
               <summary className="cursor-pointer text-sm">
@@ -423,7 +504,29 @@ export function CreateResource({
                 </dd>
                 <dt>Environment</dt>
                 <dd>{plan.review.configuration.environment}</dd>
-                {plan.review.configuration.service === "s3" ? (
+                {plan.review.configuration.service === "vpc" ? (
+                  <>
+                    <dt>IPv4 CIDR</dt>
+                    <dd className="break-all">{plan.review.configuration.cidr}</dd>
+                    <dt>DNS hostnames</dt>
+                    <dd>{plan.review.configuration.enableDnsHostnames ? "Enabled" : "Disabled"}</dd>
+                    <dt>Internet gateway</dt>
+                    <dd>Not created</dd>
+                  </>
+                ) : plan.review.configuration.service === "subnet" ? (
+                  <>
+                    <dt>VPC</dt>
+                    <dd className="break-all">{plan.review.configuration.vpcId}</dd>
+                    <dt>IPv4 CIDR</dt>
+                    <dd className="break-all">{plan.review.configuration.cidr}</dd>
+                    <dt>Availability Zone</dt>
+                    <dd>{plan.review.availabilityZone ?? "Chosen by AWS"}</dd>
+                    <dt>Usable addresses</dt>
+                    <dd>{plan.review.usableAddresses ?? "Unknown"}</dd>
+                    <dt>Auto-assign public IPv4</dt>
+                    <dd>Disabled</dd>
+                  </>
+                ) : plan.review.configuration.service === "s3" ? (
                   <>
                     <dt>Encryption</dt>
                     <dd>Enabled (SSE-S3)</dd>

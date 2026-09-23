@@ -28,6 +28,9 @@ function createAuth() {
   if (env.AUTH_GOOGLE_CLIENT_ID && env.AUTH_GOOGLE_CLIENT_SECRET) {
     socialProviders.google = { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET };
   }
+  if (env.AUTH_LINKEDIN_CLIENT_ID && env.AUTH_LINKEDIN_CLIENT_SECRET) {
+    socialProviders.linkedin = { clientId: env.AUTH_LINKEDIN_CLIENT_ID, clientSecret: env.AUTH_LINKEDIN_CLIENT_SECRET };
+  }
 
   return betterAuth({
     appName: "Stratus",

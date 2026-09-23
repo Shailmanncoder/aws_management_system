@@ -34,6 +34,7 @@ import {
   createResource,
   verifyWithPolling,
 } from "./adapters";
+import { countVpcs } from "./network";
 import { hash, reject, safeAwsError, validateGuardrails } from "./safety";
 import { provisionerTemplate } from "./template";
 
@@ -370,6 +371,14 @@ export async function makePlan(
       )) >= g.maxInstances
     )
       reject("The account has reached the workspace instance limit.");
+    if (
+      c.service === "vpc" &&
+      (await countVpcs(
+        session,
+        effectiveRegions(conn.enabledRegions, conn.regionAllowlist),
+      )) >= g.maxVpcs
+    )
+      reject("The account has reached the workspace VPC limit.");
     const plan = await db.$transaction(async (tx) => {
       const p = await tx.provisioningPlan.create({
         data: {
@@ -508,6 +517,8 @@ export async function applyPlan(
       (await countInstances(session, regions)) >= g.maxInstances
     )
       reject("The account has reached the workspace instance limit.");
+    if (c.service === "vpc" && (await countVpcs(session, regions)) >= g.maxVpcs)
+      reject("The account has reached the workspace VPC limit.");
     // Permission and connection checks run again immediately before the first mutation.
     await authorizeOrg(a.userId, a.organizationId, "provisioning:create");
     const latest = await connection(a, c.accountId);

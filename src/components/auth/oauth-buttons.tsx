@@ -2,10 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { OAUTH_LABELS, type OAuthProvider } from "@/lib/oauth";
 
-const LABELS = { github: "Continue with GitHub", google: "Continue with Google" } as const;
-
-export function OAuthButtons({ providers, callbackURL }: { providers: ("github" | "google")[]; callbackURL: string }) {
+export function OAuthButtons({ providers, callbackURL }: { providers: OAuthProvider[]; callbackURL: string }) {
   if (providers.length === 0) return null;
   return (
     <div className="space-y-2">
@@ -20,7 +19,7 @@ export function OAuthButtons({ providers, callbackURL }: { providers: ("github" 
           className="w-full"
           onClick={() => void authClient.signIn.social({ provider: p, callbackURL })}
         >
-          {LABELS[p]}
+          {OAUTH_LABELS[p]}
         </Button>
       ))}
     </div>

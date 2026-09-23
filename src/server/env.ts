@@ -38,6 +38,8 @@ export const envSchema = z
     AUTH_GITHUB_CLIENT_SECRET: optionalString,
     AUTH_GOOGLE_CLIENT_ID: optionalString,
     AUTH_GOOGLE_CLIENT_SECRET: optionalString,
+    AUTH_LINKEDIN_CLIENT_ID: optionalString,
+    AUTH_LINKEDIN_CLIENT_SECRET: optionalString,
     AUTH_REQUIRE_EMAIL_VERIFICATION: booleanString,
     MAIL_TRANSPORT: z.enum(["disabled", "smtp", "test"]).default("disabled"),
     MAIL_FROM: optionalString,
@@ -102,6 +104,9 @@ export const envSchema = z
     }
     if ((env.AUTH_GOOGLE_CLIENT_ID === undefined) !== (env.AUTH_GOOGLE_CLIENT_SECRET === undefined)) {
       issue("AUTH_GOOGLE_CLIENT_ID", "Google OAuth requires both client id and secret");
+    }
+    if ((env.AUTH_LINKEDIN_CLIENT_ID === undefined) !== (env.AUTH_LINKEDIN_CLIENT_SECRET === undefined)) {
+      issue("AUTH_LINKEDIN_CLIENT_ID", "LinkedIn OAuth requires both client id and secret");
     }
 
     if (env.MAIL_TRANSPORT === "smtp") {

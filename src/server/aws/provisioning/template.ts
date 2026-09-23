@@ -30,6 +30,8 @@ export function provisionerPolicy(
           "ec2:DescribeKeyPairs",
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeSubnets",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeAvailabilityZones",
         ],
         Resource: "*",
       },
@@ -100,6 +102,43 @@ export function provisionerPolicy(
         Condition: {
           StringEquals: {
             "ec2:CreateAction": "RunInstances",
+            ...tags,
+            "aws:RequestedRegion": g.allowedRegions,
+          },
+        },
+      },
+      // Networks: creation is tag-conditioned, and the only post-creation change permitted is
+      // enabling DNS on a VPC that Stratus itself created. No gateways, routes or deletions.
+      {
+        Sid: "CreateNetworks",
+        Effect: "Allow",
+        Action: ["ec2:CreateVpc", "ec2:CreateSubnet"],
+        Resource: [ec2("vpc"), ec2("subnet")],
+        Condition: {
+          StringEquals: { ...tags, "aws:RequestedRegion": g.allowedRegions },
+        },
+      },
+      {
+        Sid: "ConfigureCreatedVpcs",
+        Effect: "Allow",
+        Action: ["ec2:ModifyVpcAttribute"],
+        Resource: ec2("vpc"),
+        Condition: {
+          StringEquals: {
+            "ec2:ResourceTag/ManagedBy": "Stratus",
+            "ec2:ResourceTag/ConnectionId": connectionId,
+            "aws:RequestedRegion": g.allowedRegions,
+          },
+        },
+      },
+      {
+        Sid: "NetworkCreationTagsOnly",
+        Effect: "Allow",
+        Action: ["ec2:CreateTags"],
+        Resource: [ec2("vpc"), ec2("subnet")],
+        Condition: {
+          StringEquals: {
+            "ec2:CreateAction": ["CreateVpc", "CreateSubnet"],
             ...tags,
             "aws:RequestedRegion": g.allowedRegions,
           },

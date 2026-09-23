@@ -21,7 +21,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Standalone output is for the Docker image. Vercel builds and hosts the app itself, and the
+  // standalone server is both unnecessary and unsupported there, so it is disabled on Vercel.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   poweredByHeader: false,
   reactStrictMode: true,
   productionBrowserSourceMaps: false,

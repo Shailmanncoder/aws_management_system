@@ -5,6 +5,8 @@ import {
   Database,
   FileClock,
   Gauge,
+  HeartPulse,
+  GraduationCap,
   HardDrive,
   LayoutDashboard,
   Lightbulb,
@@ -35,6 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard, permission: "org:read" },
+      { href: "/checkup", label: "Check-up", icon: HeartPulse, permission: "inventory:read" },
       { href: "/resources", label: "Resources", icon: Boxes, permission: "inventory:read" },
     ],
   },
@@ -57,6 +60,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/security", label: "Security", icon: ShieldCheck, permission: "security:read" },
       { href: "/monitoring", label: "Monitoring", icon: Gauge, permission: "metrics:read" },
       { href: "/alerts", label: "Alerts", icon: Bell, permission: "alerts:read" },
+      { href: "/guides", label: "Guides", icon: GraduationCap, permission: "inventory:read" },
     ],
   },
   {

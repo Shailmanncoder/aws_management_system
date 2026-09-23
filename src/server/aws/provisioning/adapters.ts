@@ -33,6 +33,7 @@ import { normalizeInstance } from "@/server/aws/collectors/ec2";
 import type { NormalizedResource } from "@/server/aws/collectors/types";
 import { loadPriceBook } from "@/server/aws/pricing";
 import { reject, validateSecurityGroups } from "./safety";
+import { createNetwork, locateNetwork, networkPreflight, verifyNetwork } from "./network";
 
 // Creation clients deliberately disable automatic retries. Reads can be repeated safely.
 const config = (s: AwsSession, region: string, mutation = false) => ({
@@ -103,6 +104,7 @@ export async function preflight(
     requiredPermissions: [],
     networkExposure: "Private",
   };
+  if (c.service === "vpc" || c.service === "subnet") return networkPreflight(session, c, review);
   if (c.service === "s3") {
     const s3 = new S3Client(config(session, c.region));
     try {
@@ -318,6 +320,7 @@ export async function createResource(
   token: string,
   checkpoint: (id: string) => Promise<void>,
 ): Promise<string> {
+  if (c.service === "vpc" || c.service === "subnet") return createNetwork(session, c, review, token, checkpoint);
   if (c.service === "ec2") {
     const ec2 = new EC2Client(config(session, c.region, true));
     try {
@@ -401,6 +404,7 @@ export async function verifyResource(
   review: Review,
   resourceId: string,
 ): Promise<NormalizedResource> {
+  if (c.service === "vpc" || c.service === "subnet") return verifyNetwork(session, c, review, resourceId);
   if (c.service === "ec2") {
     const ec2 = new EC2Client(config(session, c.region));
     try {
@@ -561,6 +565,7 @@ export async function locateResource(
   c: Configuration,
   planId: string,
 ): Promise<string | null> {
+  if (c.service === "vpc" || c.service === "subnet") return locateNetwork(session, c, planId);
   if (c.service === "s3") {
     const s3 = new S3Client(config(session, c.region));
     try {

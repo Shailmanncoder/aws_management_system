@@ -1,5 +1,7 @@
 import { SectionActions } from "@/app/(app)/_components/section-actions";
+import { BookOpen } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ExportButton } from "@/components/common/export-button";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState, NoAccess } from "@/components/common/states";
@@ -8,6 +10,8 @@ import { Pagination } from "@/components/data/pagination";
 import { FindingAction } from "@/components/security/finding-action";
 import { Badge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/format";
+import { buildHref } from "@/lib/url";
+import { walkthroughForRule } from "@/lib/walkthroughs";
 import { FINDING_SOURCES, FINDING_STATUSES, SEVERITIES, listSecurityFindings } from "@/server/services/findings-service";
 import { getPageAccess } from "@/server/services/workspace-context";
 
@@ -48,10 +52,25 @@ export default async function SecurityPage({ searchParams }: PageProps<"/securit
         <p><strong>Why it matters:</strong> {finding.rationale}</p>
         <pre className="overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">{JSON.stringify(finding.evidence, null, 2)}</pre>
         <p><strong>Investigate or remediate:</strong> {finding.remediation}</p>
+        <FixGuideLink ruleId={finding.ruleId} region={finding.region} resourceId={finding.resource?.resourceId ?? null} />
         <p className="text-xs text-muted-foreground">Rule {finding.ruleId} · First seen {formatRelative(finding.firstSeenAt)} · Last detected {formatRelative(finding.lastSeenAt)}</p>
         {access.can("security:manage") && finding.status !== "RESOLVED" && <FindingAction orgId={access.organizationId} findingId={finding.id} suppressed={finding.status === "SUPPRESSED"} />}
       </div></details>
     </article>)}
     <Pagination pathname="/security" params={raw} page={data.page} pageSize={data.pageSize} total={data.total} />
   </div>;
+}
+
+/** Links a finding to the click-by-click walkthrough that fixes it, when one exists. */
+function FixGuideLink({ ruleId, region, resourceId }: { ruleId: string; region: string; resourceId: string | null }) {
+  const guide = walkthroughForRule(ruleId);
+  if (!guide) return null;
+  return (
+    <p>
+      <Link href={buildHref(`/guides/${guide.id}`, {}, { region, resource: resourceId })} className="inline-flex items-center gap-1.5 text-primary hover:underline">
+        <BookOpen className="size-4" aria-hidden />
+        Show me exactly where to click: {guide.title}
+      </Link>
+    </p>
+  );
 }

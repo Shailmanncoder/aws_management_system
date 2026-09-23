@@ -4,6 +4,7 @@ import type { SecurityGroup } from "@aws-sdk/client-ec2";
 import type { Configuration, Guardrails } from "@/lib/provisioning";
 import { AppError } from "@/server/errors";
 import { isKnownRegion } from "@/server/aws/regions-catalog";
+import { describeCidrProblem } from "@/lib/cidr";
 
 export function reject(message: string): never {
   throw new AppError("PRECONDITION_FAILED", message);
@@ -30,6 +31,12 @@ export function validateGuardrails(
     !enabledRegions.includes(c.region)
   )
     reject("This region is not enabled and allowed for this connection.");
+  if (c.service === "vpc" || c.service === "subnet") {
+    // The schema already checked this; it is re-checked here because guardrails are re-evaluated
+    // immediately before the mutation, after the plan has been sitting in the database.
+    const problem = describeCidrProblem(c.cidr, { min: 16, max: 28 });
+    if (problem) reject(problem);
+  }
   if (c.service === "ec2") {
     if (!g.allowedInstanceTypes.includes(c.instanceType))
       reject("This instance type is not allowed.");

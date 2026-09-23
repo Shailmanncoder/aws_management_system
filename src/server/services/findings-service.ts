@@ -61,7 +61,7 @@ export async function listSecurityFindings(access: OrgAccess, raw: Record<string
   const db = getDb();
   const [items, total, accounts] = await Promise.all([
     db.securityFinding.findMany({ where, orderBy: [{ severity: "asc" }, { lastSeenAt: "desc" }, { id: "asc" }], skip: (p.page - 1) * 25, take: 25,
-      include: { awsAccount: { select: { displayName: true, awsAccountId: true } } } }),
+      include: { awsAccount: { select: { displayName: true, awsAccountId: true } }, resource: { select: { resourceId: true } } } }),
     db.securityFinding.count({ where }),
     db.awsAccount.findMany({ where: { organizationId: access.organizationId, ...(p.account ? { id: p.account } : {}) },
       select: { id: true, displayName: true, securityScannedAt: true, securityCoverage: true } }),

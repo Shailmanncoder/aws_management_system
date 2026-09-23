@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import type { OAuthProvider } from "@/lib/oauth";
 import { OAuthButtons } from "./oauth-buttons";
 
-export function SignInForm({ next, oauth, recoveryEnabled = false }: { recoveryEnabled?: boolean; next: string; oauth: ("github" | "google")[] }) {
+export function SignInForm({ next, oauth, recoveryEnabled = false }: { recoveryEnabled?: boolean; next: string; oauth: OAuthProvider[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
