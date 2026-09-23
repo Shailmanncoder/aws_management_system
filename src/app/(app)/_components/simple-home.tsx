@@ -1,3 +1,4 @@
+import { VisualInsights } from "@/components/simple/visual-insights";
 import { logger } from "@/server/logging/logger";
 import Link from "next/link";
 import { ArrowRight, Wallet, ShieldCheck, FolderHeart, GraduationCap } from "lucide-react";
@@ -6,21 +7,23 @@ import { CoverageBanner } from "@/components/cost/coverage-banner";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { OrgAccess } from "@/server/authz/guard";
 import { getCostOverview, parseCostParams } from "@/server/services/cost-service";
-import { getSecuritySummary, type Scope } from "@/server/services/dashboard-service";
+import { getInventorySummary, getSecuritySummary, type Scope } from "@/server/services/dashboard-service";
 import { getPriorities } from "@/server/services/simple-service";
 import { Priorities } from "@/components/simple/priorities";
 import { Explain } from "@/components/simple/explain";
 import { CurrencyPicker } from "@/components/cost/currency-picker";
 export async function SimpleHome({ access, scope, name, currency }: { access: OrgAccess; scope: Scope; name: string; currency?: string }) {
-  const [priorityResult, costResult, securityResult] = await Promise.allSettled([
+  const [priorityResult, costResult, securityResult, inventoryResult] = await Promise.allSettled([
     getPriorities(access, scope),
     access.can("cost:read") ? getCostOverview(access, parseCostParams({ ...scope, currency })) : null,
     access.can("security:read") ? getSecuritySummary(access, scope) : null,
+    access.can("inventory:read") ? getInventorySummary(access, scope) : null,
   ]);
   const priorities = priorityResult.status === "fulfilled" ? priorityResult.value : null;
   const cost = costResult.status === "fulfilled" ? costResult.value : null;
+  const inventory = inventoryResult.status === "fulfilled" ? inventoryResult.value : null;
   const security = securityResult.status === "fulfilled" ? securityResult.value : null;
-  for (const result of [priorityResult, costResult, securityResult]) if (result.status === "rejected") logger.error("simple dashboard section unavailable", { err: result.reason });
+  for (const result of [priorityResult, costResult, securityResult, inventoryResult]) if (result.status === "rejected") logger.error("simple dashboard section unavailable", { err: result.reason });
   return <div className="mx-auto max-w-6xl space-y-7">
     <section className="border-b pb-7 pt-1 sm:pb-9"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{name} · Your cloud workspace</p><h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl sm:leading-tight">Your cloud, made clearer.</h1><p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">See what you are spending, what needs attention, and the next step to take.</p><p className="mt-6 text-xs text-muted-foreground">{priorities?.lastChecked ? `Oldest available account refresh: ${formatDateTime(priorities?.lastChecked)}. Some checks update separately.` : "Waiting for the first account refresh."}</p></section>
     {priorities && !priorities.accounts.length && <Card><CardHeader><CardTitle>Connect an AWS account to get started</CardTitle></CardHeader><CardContent><p className="mb-3 text-sm text-muted-foreground">Connect an account so Stratus can show its resources and spending. The connection guide explains each step.</p>{access.can("aws_accounts:connect") ? <Link href="/settings/cloud-accounts/connect" className="font-medium text-primary underline">Connect AWS</Link> : <p>Ask a workspace administrator to connect an account.</p>}</CardContent></Card>}
@@ -29,6 +32,8 @@ export async function SimpleHome({ access, scope, name, currency }: { access: Or
       {security && <Card ><CardHeader><CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="size-8 rounded-lg bg-muted p-1.5 text-muted-foreground" /> Security checks</CardTitle></CardHeader><CardContent className="space-y-3"><p className="text-3xl font-semibold">{security.total} open {security.total === 1 ? "issue" : "issues"}</p><p className="text-sm text-muted-foreground">{security.coverageMessage}</p><Link className="text-sm font-medium text-primary underline" href="/security">Review security checks</Link><Explain><p>A finding flags a setting that deserves review. It does not by itself mean an attack happened. No findings does not guarantee everything is safe, especially when checks are missing or stale.</p></Explain></CardContent></Card>}
     </div>
     {cost && <CoverageBanner coverage={cost.coverage} />}
+    <VisualInsights cost={cost ? { daily: cost.daily, currency: cost.currency } : null} security={security} inventory={inventory ? { resources: inventory.resources, regions: inventory.regions, ec2: inventory.ec2, s3: inventory.s3, databases: inventory.databases, lambda: inventory.lambda, containers: inventory.containers } : null} scope={scope} />
+    {inventoryResult.status === "rejected" && <p role="alert" className="text-sm text-muted-foreground">Resource insights are temporarily unavailable. Other sections remain available.</p>}
     {priorityResult.status === "rejected" ? <p role="alert" className="rounded-xl border p-5">Your action list is temporarily unavailable. Refresh this page to try again.</p> : priorities && <Priorities actions={priorities.actions} />}
     {costResult.status === "rejected" && <p role="alert" className="rounded-xl border p-5">Spending information is temporarily unavailable. Try opening Spending again shortly.</p>}
     {securityResult.status === "rejected" && <p role="alert" className="rounded-xl border p-5">Security checks could not be loaded. This does not mean there are no issues.</p>}

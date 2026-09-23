@@ -18,7 +18,7 @@ export function BarList({ items, className, ariaLabel }: { items: BarListItem[];
   return (
     <ul className={cn("space-y-1.5", className)} aria-label={ariaLabel}>
       {items.map((i) => {
-        const pct = max > 0 ? Math.max(1, (i.value / max) * 100) : 0;
+        const pct = max > 0 && i.value > 0 ? Math.max(1, (i.value / max) * 100) : 0;
         const label = (
           <span className="flex min-w-0 items-center gap-1.5">
             {i.icon}
