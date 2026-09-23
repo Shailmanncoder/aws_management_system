@@ -367,3 +367,5 @@ restore testing: [docs/BACKUPS.md](docs/BACKUPS.md). CI (`.github/workflows/ci.y
 - The production image is large (~3.8 GB, full AWS SDK + Next.js); a standalone/tree-shaken build
   would reduce it.
 - Row-level security in PostgreSQL would add a second tenant-isolation layer.
+
+GCP and Azure setup, supported capabilities, and verification limits: [Multi-cloud connections](docs/MULTICLOUD.md).

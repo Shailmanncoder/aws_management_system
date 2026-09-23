@@ -11,7 +11,7 @@ export function ScopeFilter({ accounts, regions }: { accounts: { id: string; lab
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  if (accounts.length === 0) return null;
+  if (accounts.length === 0 || ["/cloud/gcp", "/cloud/azure"].includes(pathname)) return null;
 
   const set = (key: "account" | "region", value: string) => {
     const next = new URLSearchParams(params.toString());

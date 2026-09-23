@@ -2,7 +2,7 @@
 export function workspaceDestination(pathname: string): string {
   const sections = [
     "/settings/cloud-accounts", "/settings/members", "/settings/alerts", "/settings/workspace", "/settings/profile",
-    "/cloud/ec2", "/cloud/s3", "/cloud/network", "/cloud/databases", "/cloud/serverless", "/cloud/containers",
+    "/cloud/gcp", "/cloud/azure", "/cloud/ec2", "/cloud/s3", "/cloud/network", "/cloud/databases", "/cloud/serverless", "/cloud/containers",
     "/resources", "/cost", "/security", "/optimization", "/monitoring", "/alerts", "/audit",
     "/budget", "/projects", "/help", "/weekly", "/start", "/guides", "/checkup", "/settings",
   ];

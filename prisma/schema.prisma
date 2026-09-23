@@ -137,6 +137,7 @@ model Organization {
 
   members          OrganizationMember[]
   invitations      Invitation[]
+  cloudConnections CloudConnection[]
   awsAccounts      AwsAccount[]
   awsConnections   AwsConnection[]
   resources        AwsResource[]
@@ -811,4 +812,31 @@ model HelpRequest {
   updatedAt DateTime @updatedAt
   @@index([organizationId, status, createdAt])
   @@map("help_requests")
+}
+
+/// GCP projects and Azure subscriptions. Secrets never appear in DTOs or stored snapshots.
+model CloudConnection {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider String
+  externalId String
+  displayName String
+  credentialsEnc String?
+  status String @default("CONNECTED")
+  inventory Json?
+  billing Json?
+  security Json?
+  diagnostics Json?
+  lastAttemptAt DateTime?
+  inventoryAt DateTime?
+  billingAt DateTime?
+  securityAt DateTime?
+  syncToken String? @db.Uuid
+  leaseUntil DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId, provider, externalId])
+  @@index([organizationId, provider])
+  @@map("cloud_connections")
 }

@@ -26,6 +26,9 @@ export default async function CloudAccountsPage() {
 
   return (
     <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[{name:"Amazon Web Services",href:"/settings/cloud-accounts/connect",text:"AWS accounts and IAM roles"},{name:"Google Cloud",href:"/cloud/gcp",text:"Projects, resources, billing and findings"},{name:"Microsoft Azure",href:"/cloud/azure",text:"Subscriptions, resources, costs and assessments"}].map(p=><Link key={p.href} href={p.href} className="rounded-lg border bg-card p-4 hover:bg-accent"><h2 className="font-medium">{p.name}</h2><p className="mt-1 text-xs text-muted-foreground">{p.text}</p></Link>)}
+      </div>
       {platform && (
         <Card>
           <CardHeader>

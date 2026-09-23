@@ -20,7 +20,7 @@ export default async function BudgetPage({ searchParams }: PageProps<"/budget">)
   const state = budget ? budgetProgress(amount, budget.amount, cost.summary.projection) : null;
   const currencies = [...new Set([...cost.currencies, ...budgets.map(b => b.currency)])];
   return <div className="mx-auto max-w-5xl space-y-6">
-    <PageHeader title="Budget planner" description="Plan spending for all accounts in this workspace. Account and region filters do not apply to this page." />
+    <PageHeader title="Budget planner" description="Plan spending for all AWS accounts in this workspace. Account and region filters do not apply to this page." />
     <CoverageBanner coverage={cost.coverage} />
     <div className="flex flex-wrap gap-2">{currencies.map(c => <Link key={c} href={`/budget?currency=${c}`} aria-current={currency === c ? "page" : undefined} className={`rounded-full border px-4 py-2 text-sm ${currency === c ? "bg-primary text-primary-foreground" : "bg-card"}`}>{c}</Link>)}</div>
     <div className="grid gap-4 sm:grid-cols-3">

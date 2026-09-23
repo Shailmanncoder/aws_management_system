@@ -16,7 +16,7 @@ export function BudgetForm({ orgId, currency, amount, warningPercent = 80 }: { o
       <label className="space-y-1 text-sm">Currency code<Input name="currency" required pattern="[A-Za-z]{3}" maxLength={3} defaultValue={currency} placeholder="USD, INR, EUR" /></label>
       <label className="space-y-1 text-sm">Warn me at (%)<Input name="warning" type="number" required min={1} max={100} step={1} defaultValue={warningPercent} /></label>
     </div>
-    <p className="text-xs text-muted-foreground">One monthly budget per currency, across all workspace accounts. Saving an existing currency replaces its budget and enables its alerts.</p>
+    <p className="text-xs text-muted-foreground">One monthly budget per currency, across all workspace AWS accounts. Saving an existing currency replaces its budget and enables its alerts.</p>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Button disabled={busy} type="submit">{busy ? "Saving…" : "Save monthly budget"}</Button>
   </form>;

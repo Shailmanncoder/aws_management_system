@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "Stratus", template: "%s · Stratus" },
-  description: "Multi-account AWS inventory, cost, security and optimisation.",
+  description: "AWS, Google Cloud and Azure inventory, spending and security.",
   robots: { index: false, follow: false },
   referrer: "strict-origin-when-cross-origin",
 };

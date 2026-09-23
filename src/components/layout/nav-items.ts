@@ -1,5 +1,6 @@
 import {
   Bell,
+  Cloud,
   Boxes,
   Container,
   Database,
@@ -52,7 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Infrastructure",
+    label: "AWS infrastructure",
     items: [
       { href: "/cloud/ec2", label: "EC2", icon: Server, permission: "inventory:read" },
       { href: "/cloud/s3", label: "S3", icon: HardDrive, permission: "inventory:read" },
@@ -63,7 +64,14 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Insights",
+    label: "Other clouds",
+    items: [
+      { href: "/cloud/gcp", label: "Google Cloud", icon: Cloud, permission: "aws_accounts:read" },
+      { href: "/cloud/azure", label: "Microsoft Azure", icon: Cloud, permission: "aws_accounts:read" },
+    ],
+  },
+  {
+    label: "AWS insights",
     items: [
       { href: "/cost", label: "Cost Explorer", icon: Receipt, permission: "cost:read" },
       { href: "/optimization", label: "Optimization", icon: Lightbulb, permission: "optimization:read" },

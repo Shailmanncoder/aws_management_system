@@ -7,6 +7,9 @@ import { insertAudit, type AuditInsert } from "../repositories/audit-repository"
 
 /** Catalogue of audited actions (kept as constants so they are greppable and consistent). */
 export const AUDIT = {
+  CLOUD_CONNECTED: "cloud.connected",
+  CLOUD_SYNCED: "cloud.synced",
+  CLOUD_DISCONNECTED: "cloud.disconnected",
   PROJECT_CHANGED: "project.changed",
   HELP_CHANGED: "help.changed",
   LOGIN: "auth.login",
