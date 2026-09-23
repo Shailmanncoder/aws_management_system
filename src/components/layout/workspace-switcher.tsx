@@ -2,7 +2,8 @@
 
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { announceWorkspaceChange, workspaceDestination } from "@/lib/workspace-navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,23 +24,28 @@ export interface WorkspaceOption {
 }
 
 export function WorkspaceSwitcher({ current, options }: { current: WorkspaceOption; options: WorkspaceOption[] }) {
-  const router = useRouter();
+  const [switching, setSwitching] = useState(false);
 
   async function select(id: string) {
-    if (id === current.id) return;
+    if (id === current.id || switching) return;
+    setSwitching(true);
     try {
       await api("/api/v1/session/workspace", { method: "POST", body: { organizationId: id } });
-      router.push("/");
-      router.refresh();
+      // A new document drops prefetched routes, forms, search results and live subscriptions.
+      announceWorkspaceChange();
+      window.location.replace(workspaceDestination(window.location.pathname));
     } catch (e) {
+      setSwitching(false);
       toast.error(errorMessage(e));
     }
   }
 
   return (
+    <>
+    {switching && <div role="status" aria-live="polite" className="fixed inset-0 z-[100] grid place-items-center bg-background/95 text-sm text-muted-foreground">Switching workspace…</div>}
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="max-w-52 justify-between gap-2 px-2" aria-label={`Workspace: ${current.name}`}>
+        <Button disabled={switching} variant="ghost" className="max-w-52 justify-between gap-2 px-2" aria-label={`Workspace: ${current.name}`}>
           <span className="truncate font-medium">{current.name}</span>
           <ChevronsUpDown className="size-3.5 opacity-60" aria-hidden />
         </Button>
@@ -63,5 +69,6 @@ export function WorkspaceSwitcher({ current, options }: { current: WorkspaceOpti
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }

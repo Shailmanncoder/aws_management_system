@@ -1,3 +1,4 @@
+import { WorkspaceBoundary } from "@/components/layout/workspace-boundary";
 import { cookies } from "next/headers";
 import { AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? "Fixture mode. This deployment is configured for test fixtures, so any account connected here will show synthetic data."
       : undefined;
   return (
-    <LiveUpdates orgId={ctx.org.id}>
+    <WorkspaceBoundary key={ctx.org.id}><LiveUpdates orgId={ctx.org.id}>
     <AppShell
       role={ctx.role}
       simple={(await cookies()).get("stratus-experience")?.value !== "detailed"}
@@ -47,6 +48,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </AppShell>
-    </LiveUpdates>
+    </LiveUpdates></WorkspaceBoundary>
   );
 }

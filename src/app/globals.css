@@ -62,25 +62,25 @@
  * ship with an icon + label.
  */
 :root {
-  --background: #f5f7fc;
-  --foreground: #17213b;
+  --background: #fafaf9;
+  --foreground: #242724;
   --card: #ffffff;
-  --card-foreground: #17213b;
+  --card-foreground: #242724;
   --popover: #ffffff;
-  --popover-foreground: #17213b;
-  --primary: #5145cd;
+  --popover-foreground: #242724;
+  --primary: #426758;
   --primary-foreground: #ffffff;
-  --secondary: #eef1f9;
-  --secondary-foreground: #17213b;
-  --muted: #eef1f9;
-  --muted-foreground: #59657d;
-  --accent: #e9edfa;
-  --accent-foreground: #17213b;
+  --secondary: #f0f1ef;
+  --secondary-foreground: #242724;
+  --muted: #f0f1ef;
+  --muted-foreground: #6b706c;
+  --accent: #edf0eb;
+  --accent-foreground: #242724;
   --destructive: #c42f2f;
-  --border: #e0e6f0;
-  --input: #cbd4e3;
-  --ring: #6256df;
-  --chart-1: #6256df;
+  --border: #e5e7e3;
+  --input: #d6dad4;
+  --ring: #557c69;
+  --chart-1: #557c69;
   --chart-2: #eb6834;
   --chart-3: #1baf7a;
   --chart-4: #eda100;
@@ -88,42 +88,42 @@
   --chart-6: #008300;
   --chart-7: #4a3aa7;
   --chart-8: #e34948;
-  --chart-grid: #e0e6f0;
+  --chart-grid: #e5e7e3;
   --chart-axis: #898781;
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
   --success-text: #006300;
-  --radius: 0.75rem;
-  --sidebar: #15213b;
-  --sidebar-foreground: #e5ebff;
-  --sidebar-primary: #5145cd;
+  --radius: 0.5rem;
+  --sidebar: #f4f5f2;
+  --sidebar-foreground: #3e453e;
+  --sidebar-primary: #426758;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2b3b60;
+  --sidebar-accent: #e8ece5;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2c3955;
-  --sidebar-ring: #6256df;
+  --sidebar-border: #e3e6df;
+  --sidebar-ring: #557c69;
 }
 
 .dark {
-  --background: #0c1222;
+  --background: #151815;
   --foreground: #ffffff;
-  --card: #161f34;
+  --card: #1c201c;
   --card-foreground: #ffffff;
-  --popover: #1c2740;
+  --popover: #222722;
   --popover-foreground: #ffffff;
-  --primary: #a89fff;
-  --primary-foreground: #17213b;
-  --secondary: #293650;
+  --primary: #aacbb8;
+  --primary-foreground: #242724;
+  --secondary: #30382f;
   --secondary-foreground: #ffffff;
-  --muted: #222e46;
-  --muted-foreground: #b7c3db;
-  --accent: #293650;
+  --muted: #282e27;
+  --muted-foreground: #aeb8ac;
+  --accent: #30382f;
   --accent-foreground: #ffffff;
   --destructive: #e66767;
-  --border: #293650;
-  --input: #384762;
+  --border: #30382f;
+  --input: #424c40;
   --ring: #3987e5;
   --chart-1: #3987e5;
   --chart-2: #d95926;
@@ -133,16 +133,16 @@
   --chart-6: #008300;
   --chart-7: #9085e9;
   --chart-8: #e66767;
-  --chart-grid: #293650;
+  --chart-grid: #30382f;
   --chart-axis: #898781;
   --success-text: #0ca30c;
-  --sidebar: #101a30;
+  --sidebar: #191d18;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #a89fff;
-  --sidebar-primary-foreground: #17213b;
-  --sidebar-accent: #222e46;
+  --sidebar-primary: #aacbb8;
+  --sidebar-primary-foreground: #242724;
+  --sidebar-accent: #282e27;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #293650;
+  --sidebar-border: #30382f;
   --sidebar-ring: #3987e5;
 }
 
@@ -179,17 +179,10 @@
   article, section { break-inside: avoid; }
 }
 
-/* Navigation owns its contrast so it stays legible in either appearance. */
-.cloud-sidebar {
-  --muted-foreground: #aebdd9;
-  --border: var(--sidebar-border);
-  color: var(--sidebar-foreground);
-}
+/* The sidebar follows the same restrained palette as the workspace. */
+.cloud-sidebar { color: var(--sidebar-foreground); }
 .cloud-sidebar [aria-current="page"] {
-  background: #5046ba;
-  color: #fff;
-  box-shadow: 0 4px 14px #070d2426;
-}
-.cloud-hero {
-  background: radial-gradient(ellipse at 100% 0%, #258b9166, transparent 55%), linear-gradient(120deg, #252658, #403b8c 65%, #20516b);
+  background: var(--sidebar-accent);
+  color: var(--sidebar-foreground);
+  font-weight: 600;
 }

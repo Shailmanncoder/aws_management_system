@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { announceWorkspaceChange } from "@/lib/workspace-navigation";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { api, errorMessage } from "@/lib/api-client";
 
 export function CreateWorkspaceForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -20,8 +19,8 @@ export function CreateWorkspaceForm() {
     setPending(true);
     try {
       await api("/api/v1/orgs", { body: { name: String(new FormData(e.currentTarget).get("name") ?? "") } });
-      router.replace("/");
-      router.refresh();
+      announceWorkspaceChange();
+      window.location.replace("/");
     } catch (err) {
       setError(errorMessage(err));
       setPending(false);
