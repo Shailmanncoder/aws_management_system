@@ -1,4 +1,5 @@
 import { SectionActions } from "@/app/(app)/_components/section-actions";
+import { S3Actions } from "@/components/resource/s3-actions";
 import { CheckCircle2, CircleHelp, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -39,7 +40,22 @@ export default async function S3DetailPage({ params }: PageProps<"/cloud/s3/[id]
 
   return (
     <div className="space-y-4">
-      <PageHeader actions={<SectionActions access={access} account={r.account.id} label="Refresh" />}
+      <PageHeader
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <S3Actions
+              orgId={access.organizationId}
+              resourceId={r.id}
+              bucketName={r.resourceId}
+              versioning={a.versioning?.ok ? a.versioning.value : null}
+              encryption={a.encryption?.ok ? a.encryption.value : null}
+              pab={a.publicAccessBlock?.ok ? a.publicAccessBlock.value : null}
+              tags={r.tags}
+              canRequest={access.can("actions:request") || access.can("provisioning:create")}
+            />
+            <SectionActions access={access} account={r.account.id} label="Refresh" />
+          </div>
+        }
         eyebrow={<Link href="/cloud/s3" className="hover:underline">S3 buckets</Link>}
         title={r.resourceId}
         description={`${r.account.displayName} (${r.account.awsAccountId}) · ${r.region}`}

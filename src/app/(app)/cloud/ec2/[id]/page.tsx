@@ -1,4 +1,5 @@
 import { SectionActions } from "@/app/(app)/_components/section-actions";
+import { Ec2Actions } from "@/components/resource/ec2-actions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -42,7 +43,24 @@ export default async function Ec2DetailPage({ params }: PageProps<"/cloud/ec2/[i
 
   return (
     <div className="space-y-4">
-      <PageHeader actions={<SectionActions access={access} account={r.account.id} label="Refresh" />}
+      <PageHeader
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Ec2Actions
+              orgId={access.organizationId}
+              resourceId={r.id}
+              instanceId={r.resourceId}
+              instanceName={r.name ?? ""}
+              state={r.state}
+              currentType={a.instanceType}
+              monitoring={a.monitoring ?? "disabled"}
+              tags={r.tags}
+              canRequest={access.can("actions:request") || access.can("provisioning:create")}
+              canConfigure={access.can("org:update") || access.can("actions:configure")}
+            />
+            <SectionActions access={access} account={r.account.id} label="Refresh" />
+          </div>
+        }
         eyebrow={
           <Link href="/cloud/ec2" className="hover:underline">
             EC2 instances

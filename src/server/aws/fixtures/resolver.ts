@@ -202,6 +202,43 @@ const ec2: Record<string, Handler> = {
   DescribeVpcEndpoints: (ctx) => ({
     VpcEndpoints: inRegion(ctx.world.vpcEndpoints, ctx.region).map((e) => ({ VpcEndpointId: e.id, VpcId: e.vpcId, ServiceName: e.service, VpcEndpointType: e.type, State: "available" })),
   }),
+  CreateTags: () => ({ return: true }),
+  DeleteTags: () => ({ return: true }),
+  StartInstances: ({ input }) => ({
+    StartingInstances: ((input.InstanceIds as string[]) ?? []).map((id) => ({
+      InstanceId: id,
+      CurrentState: { Name: "pending", Code: 0 },
+      PreviousState: { Name: "stopped", Code: 80 },
+    })),
+  }),
+  StopInstances: ({ input }) => ({
+    StoppingInstances: ((input.InstanceIds as string[]) ?? []).map((id) => ({
+      InstanceId: id,
+      CurrentState: { Name: "stopping", Code: 64 },
+      PreviousState: { Name: "running", Code: 16 },
+    })),
+  }),
+  RebootInstances: () => ({ return: true }),
+  TerminateInstances: ({ input }) => ({
+    TerminatingInstances: ((input.InstanceIds as string[]) ?? []).map((id) => ({
+      InstanceId: id,
+      CurrentState: { Name: "shutting-down", Code: 32 },
+      PreviousState: { Name: "running", Code: 16 },
+    })),
+  }),
+  ModifyInstanceAttribute: () => ({ return: true }),
+  MonitorInstances: ({ input }) => ({
+    InstanceMonitorings: ((input.InstanceIds as string[]) ?? []).map((id) => ({
+      InstanceId: id,
+      Monitoring: { State: "enabled" },
+    })),
+  }),
+  UnmonitorInstances: ({ input }) => ({
+    InstanceMonitorings: ((input.InstanceIds as string[]) ?? []).map((id) => ({
+      InstanceId: id,
+      Monitoring: { State: "disabled" },
+    })),
+  }),
 };
 
 // ─────────────────────────── S3 ───────────────────────────
@@ -267,6 +304,11 @@ const s3: Record<string, Handler> = {
     if (!b.tags) throw awsError("NoSuchTagSet", 404);
     return { TagSet: tags(b.tags) };
   },
+  PutBucketTagging: () => ({}),
+  DeleteBucketTagging: () => ({}),
+  PutBucketVersioning: () => ({}),
+  PutBucketEncryption: () => ({}),
+  PutPublicAccessBlock: () => ({}),
 };
 
 const s3control: Record<string, Handler> = {
@@ -314,6 +356,8 @@ const rds: Record<string, Handler> = {
       TagList: [],
     })),
   }),
+  AddTagsToResource: () => ({}),
+  RemoveTagsFromResource: () => ({}),
 };
 
 const dynamodb: Record<string, Handler> = {
@@ -339,6 +383,8 @@ const dynamodb: Record<string, Handler> = {
     const t = inRegion(world.dynamo, region).find((x) => x.name === input.TableName);
     return { ContinuousBackupsDescription: { ContinuousBackupsStatus: "ENABLED", PointInTimeRecoveryDescription: { PointInTimeRecoveryStatus: t?.pitr ? "ENABLED" : "DISABLED" } } };
   },
+  TagResource: () => ({}),
+  UntagResource: () => ({}),
 };
 
 // ─────────────────────────── Serverless / containers ───────────────────────────
@@ -369,6 +415,8 @@ const lambda: Record<string, Handler> = {
     const name = String(input.Resource ?? "").split(":").pop();
     return { Tags: world.lambdas.find((f) => f.name === name)?.tags ?? {} };
   },
+  TagResource: () => ({}),
+  UntagResource: () => ({}),
 };
 
 const ecs: Record<string, Handler> = {

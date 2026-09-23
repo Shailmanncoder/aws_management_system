@@ -1,4 +1,5 @@
 import { SectionActions } from "@/app/(app)/_components/section-actions";
+import { TagEditorDialog } from "@/components/resource/tag-editor-dialog";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -33,7 +34,23 @@ export default async function LambdaDetailPage({ params }: PageProps<"/cloud/ser
   const findings = await findingsForResource(access, r.id);
   return (
     <div className="space-y-4">
-      <PageHeader actions={<SectionActions access={access} account={r.account.id} label="Refresh" />} eyebrow={<Link href="/cloud/serverless" className="hover:underline">Serverless</Link>} title={r.resourceId} description={`${r.account.displayName} · ${r.region}`} />
+      <PageHeader
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <TagEditorDialog
+              orgId={access.organizationId}
+              resourceId={r.id}
+              resourceName={r.name || r.resourceId}
+              initialTags={r.tags}
+              disabled={!access.can("actions:request") && !access.can("provisioning:create")}
+            />
+            <SectionActions access={access} account={r.account.id} label="Refresh" />
+          </div>
+        }
+        eyebrow={<Link href="/cloud/serverless" className="hover:underline">Serverless</Link>}
+        title={r.resourceId}
+        description={`${r.account.displayName} · ${r.region}`}
+      />
       <Card>
         <CardContent className="pt-6">
           <KeyValue
