@@ -13,6 +13,7 @@ export const PUBLIC_ACCOUNT_SELECT = {
   displayName: true,
   partition: true,
   lastSyncedAt: true,
+  syntheticData: true,
   syncStatus: true,
   syncError: true,
   createdAt: true,

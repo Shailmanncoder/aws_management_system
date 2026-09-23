@@ -230,6 +230,10 @@ model AwsAccount {
   securityScannedAt DateTime?
   securityCoverage  Json?
   lastSyncedAt   DateTime?
+  /// True when the stored data came from a fixture-mode sync. Recorded per account rather than
+  /// read from the environment, so the "synthetic data" warning describes what is actually
+  /// stored: a database can hold real data while the process reading it is configured for fixtures.
+  syntheticData  Boolean      @default(false)
   syncStatus     SyncState    @default(NEVER)
   /// Sanitised, user-safe message only.
   syncError      String?
