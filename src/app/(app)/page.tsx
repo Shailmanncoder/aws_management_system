@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { SimpleHome } from "./_components/simple-home";
 import { Boxes, Cloud, Container, Database, Globe, HardDrive, Lightbulb, Receipt, Server, ShieldAlert, TrendingUp, Wallet, Zap } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -53,6 +55,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   };
   const costParams = parseCostParams(raw);
   if (!access) return null;
+  if ((await cookies()).get("stratus-experience")?.value !== "detailed") return <SimpleHome access={access} scope={scope} name={ctx.org.name} currency={typeof raw.currency === "string" ? raw.currency : undefined} />;
 
   return (
     <div className="space-y-6">

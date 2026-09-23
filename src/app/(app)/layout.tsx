@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <LiveUpdates orgId={ctx.org.id}>
     <AppShell
       role={ctx.role}
+      simple={(await cookies()).get("stratus-experience")?.value !== "detailed"}
       topbar={
         <Topbar ctx={ctx}>
           <Suspense>

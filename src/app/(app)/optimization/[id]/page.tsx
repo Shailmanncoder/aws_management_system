@@ -1,3 +1,4 @@
+import { Explain } from "@/components/simple/explain";
 import { SectionActions } from "@/app/(app)/_components/section-actions";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -26,6 +27,8 @@ export default async function RecommendationPage({ params }: PageProps<"/optimiz
   return (
     <div className="space-y-4">
       <PageHeader actions={<SectionActions access={access} account={f.awsAccountRefId} label="Refresh" />} eyebrow={<Link href="/optimization" className="hover:underline">Optimization</Link>} title={f.title} description={<span className="flex flex-wrap items-center gap-2"><BasisBadge basis={f.dataBasis} /><ConfidenceBadge confidence={f.confidence} /> {f.status}</span>} />
+      <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href={`/help?kind=optimization&target=${f.id}`}>Ask a teammate about this issue</Link></div>
+      <Explain><p>{f.reason}</p><p>This finding comes from saved observations. Review the evidence and last-check time before acting. A suggested change can affect applications that depend on the resource.</p></Explain>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Recommendation</CardTitle></CardHeader>

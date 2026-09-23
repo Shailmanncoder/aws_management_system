@@ -32,6 +32,7 @@ model User {
   invitations  Invitation[]         @relation("InvitedBy")
   auditEvents  AuditLog[]
   syncRequests SyncJob[]
+  assignedHelp HelpRequest[] @relation("HelpAssignee")
 
   @@map("users")
 }
@@ -149,6 +150,8 @@ model Organization {
   syncJobs         SyncJob[]
   metricSummaries  MetricSummary[]
   actionRequests   ActionRequest[]
+  businessProjects BusinessProject[]
+  helpRequests HelpRequest[]
 
   @@map("organizations")
 }
@@ -247,6 +250,8 @@ model AwsAccount {
   optimizations    OptimizationFinding[]
   syncJobs         SyncJob[]
   alerts           Alert[]
+
+  projectAssignment BusinessProjectAccount?
 
   @@unique([organizationId, awsAccountId])
   @@unique([organizationId, id])
@@ -760,4 +765,50 @@ model PlatformCredential {
   updatedAt          DateTime @updatedAt
 
   @@map("platform_credentials")
+}
+
+// Business projects group whole AWS accounts so their costs can be attributed without guesses.
+model BusinessProject {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  owner String
+  description String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  accounts BusinessProjectAccount[]
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@map("business_projects")
+}
+
+model BusinessProjectAccount {
+  organizationId String @db.Uuid
+  projectId String @db.Uuid
+  accountId String @unique @db.Uuid
+  project BusinessProject @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Cascade)
+  account AwsAccount @relation(fields: [organizationId, accountId], references: [organizationId, id], onDelete: Cascade)
+  @@id([organizationId, accountId])
+  @@index([organizationId, projectId])
+  @@map("business_project_accounts")
+}
+
+model HelpRequest {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind String
+  targetId String @db.Uuid
+  title String
+  note String @default("")
+  requestedById String @db.Uuid
+  assigneeId String? @db.Uuid
+  assignee User? @relation("HelpAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  status String @default("OPEN")
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, status, createdAt])
+  @@map("help_requests")
 }

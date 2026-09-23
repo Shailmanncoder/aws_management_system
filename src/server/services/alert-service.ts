@@ -19,7 +19,7 @@ export const ALERT_TYPES = ["COST_THRESHOLD", "COST_ANOMALY", "PUBLIC_EXPOSURE",
 const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFORMATIONAL: 1 };
 
 export const ruleConfigSchemas = {
-  COST_THRESHOLD: z.strictObject({ monthToDateAmount: z.number().positive().max(1e9), currency: z.string().regex(/^[A-Z]{3}$/).default("USD") }),
+  COST_THRESHOLD: z.strictObject({ monthToDateAmount: z.number().positive().max(1e9), currency: z.string().regex(/^[A-Z]{3}$/).default("USD"), scope: z.enum(["ACCOUNT", "WORKSPACE"]).default("ACCOUNT"), warningPercent: z.number().int().min(1).max(100).default(100) }),
   COST_ANOMALY: z.strictObject({ percentAboveBaseline: z.number().min(5).max(1000).default(30), minDailyAmount: z.number().min(0).max(1e9).default(10) }),
   PUBLIC_EXPOSURE: z.strictObject({}),
   NEW_SECURITY_FINDING: z.strictObject({ minSeverity: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"]).default("HIGH") }),
@@ -109,6 +109,7 @@ export async function setAlertState(access: OrgAccess, id: string, status: "ACKN
 
 interface Emit {
   type: AlertType;
+  accountRefId?: string | null;
   ruleId: string;
   severity: Severity;
   title: string;
@@ -178,10 +179,13 @@ export async function evaluateAlerts(organizationId: string, accountRefId: strin
           const cfg = ruleConfigSchemas.COST_THRESHOLD.parse(rule.config);
           const now = new Date();
           const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-          const agg = await db.costRecord.aggregate({ where: { organizationId, awsAccountRefId: accountRefId, granularity: "DAILY", dimension: "TOTAL", periodStart: { gte: monthStart }, unit: cfg.currency }, _sum: { amount: true } });
+          const workspace = cfg.scope === "WORKSPACE";
+          const agg = await db.costRecord.aggregate({ where: { organizationId, ...(workspace ? {} : { awsAccountRefId: accountRefId }), awsAccount: { costScopeVersion: 1 }, granularity: "DAILY", dimension: "TOTAL", periodStart: { gte: monthStart, lte: now }, unit: cfg.currency }, _sum: { amount: true } });
           const mtd = agg._sum.amount ? Number(agg._sum.amount.toString()) : 0;
-          if (mtd >= cfg.monthToDateAmount) {
-            emits.push({ type: rule.type, ruleId: rule.id, severity: "HIGH", title: `Month-to-date spend exceeded ${cfg.monthToDateAmount} ${cfg.currency} (${account.displayName})`, message: `Month-to-date spend is ${mtd.toFixed(2)} ${cfg.currency} (AWS-reported, may be estimated).`, dedupeKey: `threshold:${accountRefId}:${rule.id}:${monthStart.toISOString().slice(0, 7)}`, context: { amount: Math.round(mtd * 100) / 100 } });
+          const reached = mtd >= cfg.monthToDateAmount;
+          if (mtd >= cfg.monthToDateAmount * cfg.warningPercent / 100) {
+            const label = workspace ? "Workspace" : account.displayName;
+            emits.push({ type: rule.type, ruleId: rule.id, accountRefId: workspace ? null : accountRefId, severity: reached ? "HIGH" : "MEDIUM", title: `${label}: ${reached ? "budget reached" : "budget warning"} (${cfg.currency})`, message: `Spending is ${mtd.toFixed(2)} ${cfg.currency} against a monthly budget of ${cfg.monthToDateAmount} ${cfg.currency}. AWS amounts may be estimated. This alert does not stop spending.`, dedupeKey: `threshold:${workspace ? "workspace" : accountRefId}:${rule.id}:${monthStart.toISOString().slice(0, 7)}:${reached ? "limit" : "warning"}`, context: { amount: Math.round(mtd * 100) / 100, currency: cfg.currency } });
           }
           break;
         }
@@ -209,7 +213,7 @@ export async function evaluateAlerts(organizationId: string, accountRefId: strin
   let created = 0;
   for (const e of emits) {
     const res = await db.alert.createMany({
-      data: [{ organizationId, ruleId: e.ruleId, awsAccountRefId: accountRefId, type: e.type, severity: e.severity, title: e.title.slice(0, 300), message: e.message.slice(0, 1000), context: e.context, dedupeKey: e.dedupeKey }],
+      data: [{ organizationId, ruleId: e.ruleId, awsAccountRefId: e.accountRefId === undefined ? accountRefId : e.accountRefId, type: e.type, severity: e.severity, title: e.title.slice(0, 300), message: e.message.slice(0, 1000), context: e.context, dedupeKey: e.dedupeKey }],
       skipDuplicates: true,
     });
     created += res.count;

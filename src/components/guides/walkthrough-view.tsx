@@ -1,3 +1,4 @@
+import { Explain } from "@/components/simple/explain";
 import { AlertTriangle, ArrowUpRight, Check, Info, MapPin, Undo2 } from "lucide-react";
 import { CopyBlock, CopyInline } from "@/components/common/copy-block";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,12 @@ export function WalkthroughView({ walkthrough, ctx }: { walkthrough: Walkthrough
   const t = (s: string) => resolveTokens(s, ctx);
   return (
     <div className="space-y-4">
+      <Explain label="Before making this change">
+        <p><strong>Expected result:</strong> {t(walkthrough.summary)}</p>
+        <p><strong>Possible disruption:</strong> {walkthrough.steps.filter(s => s.warning).map(s => t(s.warning!)).join(" ") || "Check which applications depend on these settings before changing them. Downtime depends on your setup."}</p>
+        <p><strong>Undo or recover:</strong> {walkthrough.rollback ? t(walkthrough.rollback) : "No automatic undo is available. Record existing settings and back up data before making changes."}</p>
+        <p>Follow the cost and verification steps below. Opening this guide does not make changes in AWS.</p>
+      </Explain>
       {walkthrough.prerequisites && walkthrough.prerequisites.length > 0 && (
         <Card>
           <CardHeader>

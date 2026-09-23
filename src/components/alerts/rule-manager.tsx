@@ -1,12 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { api, errorMessage } from "@/lib/api-client";
 
@@ -31,7 +30,6 @@ const DESCRIBE: Record<string, string> = {
 export function RuleManager({ orgId, rules, canManage }: { orgId: string; rules: Rule[]; canManage: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [amount, setAmount] = useState("");
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -51,21 +49,7 @@ export function RuleManager({ orgId, rules, canManage }: { orgId: string; rules:
           <Button variant="outline" size="sm" disabled={busy} onClick={() => void run(() => api(`/api/v1/orgs/${orgId}/alert-rules/recommended`, { method: "POST" }), "Recommended rules enabled")}>
             Enable recommended rules
           </Button>
-          <form
-            className="flex items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const n = Number(amount);
-              if (!Number.isFinite(n) || n <= 0) return;
-              void run(() => api(`/api/v1/orgs/${orgId}/alert-rules`, { body: { type: "COST_THRESHOLD", name: `Month-to-date spend over ${n} USD`, enabled: true, config: { monthToDateAmount: n, currency: "USD" } } }), "Budget alert created").then(() => setAmount(""));
-            }}
-          >
-            <div className="space-y-1">
-              <Label htmlFor="budget">Monthly budget alert (USD)</Label>
-              <Input id="budget" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-8 w-40" placeholder="e.g. 5000" />
-            </div>
-            <Button size="sm" type="submit" disabled={busy || !amount}>Add</Button>
-          </form>
+          <Button asChild variant="outline" size="sm"><Link href="/budget">Open budget planner</Link></Button>
         </div>
       )}
       {rules.length === 0 ? (
@@ -93,7 +77,7 @@ export function RuleManager({ orgId, rules, canManage }: { orgId: string; rules:
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground">Email, Slack and webhook delivery are not enabled: outbound webhooks to user-supplied URLs require an egress allow-list (SSRF protection). Alerts never include credentials or raw AWS responses.</p>
+      <p className="text-xs text-muted-foreground">Alerts are delivered inside this app after data refreshes. Email and chat notifications are not enabled.</p>
     </div>
   );
 }

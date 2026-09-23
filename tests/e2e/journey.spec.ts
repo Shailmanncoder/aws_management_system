@@ -22,10 +22,11 @@ test.describe.serial("core journey: signup → workspace → connect AWS → inv
     await waitForSync(page);
     await page.screenshot(shot("02-cloud-accounts"));
 
-    // Dashboard
+    // Detailed dashboard remains available alongside the default simple experience.
     await page.goto("/");
-    await expect(page.getByText("EC2 instances").first()).toBeVisible();
-    await expect(page.getByText("Current month spend")).toBeVisible();
+    await page.getByRole("button", { name: "Switch to detailed mode" }).click();
+    await expect(page.getByText("EC2 instances").filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText("Current month spend").filter({ visible: true })).toBeVisible();
     await page.screenshot(shot("03-dashboard"));
 
     // EC2 list + filter by state via the real URL filter
@@ -38,59 +39,59 @@ test.describe.serial("core journey: signup → workspace → connect AWS → inv
     // Per-page refresh: queues a sync, the button shows progress, and the page updates by itself.
     const refresh = page.getByRole("button", { name: "Refresh", exact: true });
     await refresh.click();
-    await expect(page.getByText(/Sync started|already running/)).toBeVisible();
+    await expect(page.getByText(/Sync started|already running/).filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "web-1" })).toBeVisible();
     await page.screenshot(shot("04-ec2"));
 
     // XSS: the fixture tag value `<img onerror>` must render as inert text.
     await page.goto("/cloud/ec2?q=bastion");
-    await expect(page.getByText(/note=<img src=x onerror/)).toBeVisible();
+    await expect(page.getByText(/note=<img src=x onerror/).filter({ visible: true })).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 
     // EC2 detail with CloudWatch graphs
     await page.getByRole("link", { name: "bastion" }).click();
     await page.getByRole("tab", { name: "Monitoring" }).click();
-    await expect(page.getByText("CPU utilization").first()).toBeVisible();
+    await expect(page.getByText("CPU utilization").filter({ visible: true }).first()).toBeVisible();
     await page.screenshot(shot("05-ec2-detail-monitoring"));
     await page.getByRole("tab", { name: "Security" }).click();
-    await expect(page.getByText(/Internet/).first()).toBeVisible();
+    await expect(page.getByText(/Internet/).filter({ visible: true }).first()).toBeVisible();
 
     // S3 posture
     await page.goto("/cloud/s3");
     const row = page.getByRole("row", { name: /acme-public-website/ });
-    await expect(row.getByText("Public", { exact: true })).toBeVisible();
+    await expect(row.getByText("Public", { exact: true }).filter({ visible: true })).toBeVisible();
     await page.screenshot(shot("06-s3"));
     await page.getByRole("link", { name: "acme-public-website" }).click();
-    await expect(page.getByText(/AWS evaluates the bucket policy as public/)).toBeVisible();
+    await expect(page.getByText(/AWS evaluates the bucket policy as public/).filter({ visible: true })).toBeVisible();
 
     // Network topology
     await page.goto("/cloud/network");
-    await expect(page.getByText("prod-vpc")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "prod-vpc", exact: true }).first()).toBeVisible();
     await page.screenshot(shot("07-network"));
 
     // Cost explorer
     await page.goto("/cost?range=3m");
     await expect(page.getByRole("button", { name: "Refresh cost data" })).toBeVisible();
-    await expect(page.getByText("Current month to date")).toBeVisible();
-    await expect(page.getByText("Daily spend")).toBeVisible();
+    await expect(page.getByText("Current month to date").filter({ visible: true })).toBeVisible();
+    await expect(page.getByText("Daily spend").filter({ visible: true })).toBeVisible();
     await page.screenshot(shot("08-cost"));
 
     // Security findings from the real post-sync analyzer.
     await page.goto("/security?severity=CRITICAL");
     await expect(page.getByRole("heading", { name: "Security Center" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "S3 bucket acme-public-website is publicly accessible" })).toBeVisible();
-    await page.getByText("Evidence and remediation", { exact: true }).first().click();
-    await expect(page.getByText("Investigate or remediate:", { exact: true }).first()).toBeVisible();
+    await page.getByText("Evidence and remediation", { exact: true }).filter({ visible: true }).first().click();
+    await expect(page.getByText("Investigate or remediate:", { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await page.screenshot(shot("09-security"));
     const findingTitle = await page.locator("article").first().getByRole("heading").innerText();
-    await page.getByLabel("Reason for accepting this risk").first().fill("Accepted temporarily for browser verification");
+    await page.getByLabel("Reason for accepting this risk").filter({ visible: true }).first().fill("Accepted temporarily for browser verification");
     await page.getByRole("button", { name: "Suppress finding", exact: true }).first().click();
     await expect(page.getByRole("heading", { name: findingTitle, exact: true })).toHaveCount(0);
     await page.goto("/security?status=SUPPRESSED");
     await expect(page.getByRole("heading", { name: findingTitle, exact: true })).toBeVisible();
-    await page.getByText("Evidence and remediation", { exact: true }).first().click();
-    await page.getByLabel("Reason for reopening").fill("Reopen after browser verification");
+    await page.getByText("Evidence and remediation", { exact: true }).filter({ visible: true }).first().click();
+    await page.getByLabel("Reason for reopening").filter({ visible: true }).fill("Reopen after browser verification");
     await page.getByRole("button", { name: "Reopen finding", exact: true }).click();
     await expect(page.getByRole("heading", { name: findingTitle, exact: true })).toHaveCount(0);
     await page.goto("/security?severity=CRITICAL");
@@ -103,23 +104,23 @@ test.describe.serial("core journey: signup → workspace → connect AWS → inv
 
     // Security Center
     await page.goto("/security");
-    await expect(page.getByText(/acme-public-website is publicly accessible/).first()).toBeVisible();
+    await expect(page.getByText(/acme-public-website is publicly accessible/).filter({ visible: true }).first()).toBeVisible();
     await page.screenshot(shot("09-security"));
 
     // Optimization
     await page.goto("/optimization");
-    await expect(page.getByText(/Unattached EBS volume/).first()).toBeVisible();
-    await expect(page.getByText("Estimated monthly savings")).toBeVisible();
+    await expect(page.getByText(/Unattached EBS volume/).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText("Estimated monthly savings").filter({ visible: true })).toBeVisible();
     await page.screenshot(shot("10-optimization"));
 
     // Alerts, audit, monitoring
     await page.goto("/settings/alerts");
-    await expect(page.getByText("New public exposure")).toBeVisible();
+    await expect(page.getByText("New public exposure").filter({ visible: true })).toBeVisible();
     await page.goto("/audit");
-    await expect(page.getByText("aws.connected").first()).toBeVisible();
+    await expect(page.getByText("aws.connected").filter({ visible: true }).first()).toBeVisible();
     await page.screenshot(shot("11-audit"));
     await page.goto("/monitoring");
-    await expect(page.getByText("Average CPU (14 days)")).toBeVisible();
+    await expect(page.getByText("Average CPU (14 days)").filter({ visible: true })).toBeVisible();
 
     // Global search (⌘K)
     await page.goto("/");

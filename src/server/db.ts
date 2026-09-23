@@ -10,11 +10,12 @@ import { getEnv } from "./env";
 const globalForPrisma = globalThis as unknown as { __stratusPrisma?: PrismaClient };
 
 function createClient(): PrismaClient {
+  const env = getEnv();
   const adapter = new PrismaPg({
-    connectionString: getEnv().DATABASE_URL,
-    max: 10,
+    connectionString: env.DATABASE_URL,
+    max: env.DATABASE_POOL_MAX,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: env.DATABASE_CONNECT_TIMEOUT_MS,
     // Bound every statement so a pathological query cannot pin a connection indefinitely.
     statement_timeout: 30_000,
   });

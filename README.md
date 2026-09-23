@@ -8,6 +8,12 @@ append-only audit trail — updating live as new data arrives. It also ships **g
 that explain, click by click, how to create and fix things in the AWS console, with the steps
 filled in from your own inventory.
 
+**For everyday use:** Simple mode highlights spending and prioritized next steps. The budget planner,
+business projects, team help requests, goal-based setup, and weekly summaries make account data
+usable without knowing AWS service names. Switch to detailed mode from the sidebar at any time.
+Budget warnings and team requests appear in the app; they do not send email or stop AWS spending.
+Projects group whole AWS accounts so costs can be attributed without inventing resource-level totals.
+
 > **Honest data.** Nothing is fabricated. When AWS does not return data (permission denied, service
 > not enabled, billing unavailable, no CloudWatch datapoints) the UI says so and explains why.
 > Estimates (projections, savings) are labelled as estimates with their basis.

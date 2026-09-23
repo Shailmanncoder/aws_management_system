@@ -1,0 +1,12 @@
+.env*
+.claude/
+.git/
+node_modules/
+.next/
+dist/
+logs/
+*.log
+*.tsbuildinfo
+playwright-report*/
+test-results/
+coverage/

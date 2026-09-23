@@ -1,4 +1,5 @@
 "use client";
+import { ChangePreview } from "@/components/simple/change-preview";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -469,6 +470,7 @@ export function CreateResource({
                 ? "Review deployment"
                 : `Deployment: ${plan.status}`}
             </p>
+            <ChangePreview review={plan.review} />
             <dl className="grid grid-cols-2 gap-2 text-sm">
               <dt>Name</dt>
               <dd>{plan.review.name}</dd>

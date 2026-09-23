@@ -76,6 +76,14 @@ export const envSchema = z
      */
     ALLOW_IN_APP_PLATFORM_SETUP: booleanString,
 
+    /**
+     * Database connection pool. The defaults suit a local database; a hosted one adds a network
+     * round-trip to every query, so a saturated pool starts timing out while acquiring a
+     * connection. Raise the pool (or lower the worker concurrency) when the database is remote.
+     */
+    DATABASE_POOL_MAX: intString(10, 1, 100),
+    DATABASE_CONNECT_TIMEOUT_MS: intString(5_000, 1_000, 60_000),
+
     WORKER_CONCURRENCY: intString(2, 1, 32),
     WORKER_POLL_INTERVAL_MS: intString(3000, 250, 60000),
     AWS_REGION_CONCURRENCY: intString(4, 1, 16),

@@ -1,5 +1,7 @@
 "use client";
 
+import { SIMPLE_LABELS } from "@/lib/simple";
+import { useSimpleMode } from "@/components/simple/mode";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,6 +23,7 @@ interface Result {
 
 /** ⌘K / Ctrl+K: jump to any page or search resources by name, ID, ARN, IP, tag, region or account. */
 export function CommandPalette({ orgId, role }: { orgId: string; role: Role }) {
+  const simple = useSimpleMode();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -87,12 +90,12 @@ export function CommandPalette({ orgId, role }: { orgId: string; role: Role }) {
           )}
           <CommandGroup heading="Pages">
             {pages
-              .filter((p) => !q.trim() || p.label.toLowerCase().includes(q.trim().toLowerCase()))
+              .filter((p) => !q.trim() || `${p.label} ${SIMPLE_LABELS[p.href] ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()))
               .map((p) => {
                 const Icon = p.icon;
                 return (
                   <CommandItem key={p.href} value={`page:${p.href}`} onSelect={() => go(p.href)}>
-                    <Icon className="size-4" aria-hidden /> {p.label}
+                    <Icon className="size-4" aria-hidden /> {simple ? SIMPLE_LABELS[p.href] ?? p.label : p.label}
                   </CommandItem>
                 );
               })}

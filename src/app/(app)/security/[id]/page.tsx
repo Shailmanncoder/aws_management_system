@@ -1,3 +1,4 @@
+import { Explain } from "@/components/simple/explain";
 import { SectionActions } from "@/app/(app)/_components/section-actions";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -34,6 +35,8 @@ export default async function FindingPage({ params }: PageProps<"/security/[id]"
   return (
     <div className="space-y-4">
       <PageHeader actions={<SectionActions access={access} account={f.awsAccountRefId} label="Refresh" />} eyebrow={<Link href="/security" className="hover:underline">Security Center</Link>} title={f.title} description={<span className="flex flex-wrap items-center gap-2"><SeverityBadge severity={f.severity as SeverityValue} /> {f.status} · {f.source.replaceAll("_", " ")}</span>} />
+      <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href={`/help?kind=security&target=${f.id}`}>Ask a teammate about this issue</Link></div>
+      <Explain><p>{f.rationale}</p><p>This finding comes from saved observations. Review the evidence and last-check time before acting. A suggested change can affect applications that depend on the resource.</p></Explain>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>What was detected</CardTitle></CardHeader>

@@ -17,6 +17,7 @@
     "postinstall": "prisma generate",
     "worker:build": "node scripts/build-worker.mjs",
     "worker": "node --env-file-if-exists=.env dist/worker.mjs",
+    "worker:remote": "node --env-file=.env.neon dist/worker.mjs",
     "worker:dev": "npm run worker:build && node --env-file-if-exists=.env --enable-source-maps dist/worker.mjs",
     "check:source": "node scripts/check-source.mjs",
     "docs:gen": "tsx scripts/gen-docs.ts"

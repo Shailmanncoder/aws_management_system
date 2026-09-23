@@ -147,6 +147,7 @@ async function summary(s: Scope, now: Date, region?: string) {
   ]);
   return {
     monthToDate: mtd.amount,
+    monthToDateHasData: mtd.days > 0,
     monthToDateEstimated: mtd.estimated,
     previousMonth: prev.amount,
     previousMonthEstimated: prev.estimated,

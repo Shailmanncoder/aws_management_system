@@ -37,7 +37,9 @@ export async function enqueueJob(input: EnqueueInput): Promise<{ job: SyncJob; d
         type: input.type,
         trigger: input.trigger,
         requestedById: input.requestedById ?? null,
-        runAfter: input.runAfter ?? new Date(),
+        // Use the same database clock as claimNextJob for immediately runnable jobs.
+        // An application host clock slightly ahead of Postgres must not delay a fresh job.
+        ...(input.runAfter ? { runAfter: input.runAfter } : {}),
         maxAttempts: input.maxAttempts ?? 3,
       },
     });

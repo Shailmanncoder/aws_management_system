@@ -42,6 +42,16 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Everyday tasks",
+    items: [
+      { href: "/budget", label: "Budget planner", icon: Receipt, permission: "cost:read" },
+      { href: "/projects", label: "Business projects", icon: Boxes, permission: "org:read" },
+      { href: "/start", label: "Start a task", icon: GraduationCap, permission: "inventory:read" },
+      { href: "/help", label: "Team help", icon: Bell, permission: "org:read" },
+      { href: "/weekly", label: "Weekly summary", icon: FileClock, permission: "org:read" },
+    ],
+  },
+  {
     label: "Infrastructure",
     items: [
       { href: "/cloud/ec2", label: "EC2", icon: Server, permission: "inventory:read" },
