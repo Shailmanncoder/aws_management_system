@@ -1,10 +1,10 @@
 import "server-only";
 import { AssumeRoleCommand, GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import type { AwsCredentialIdentity } from "@aws-sdk/types";
-import { getEnv } from "../env";
 import { logger } from "../logging/logger";
 import { accountIdFromArn, isRootPrincipalArn } from "./arn";
 import { createAwsClient, createPlatformClient } from "./client-factory";
+import { awsMode, platformCredentials, platformRegion } from "./platform-credentials";
 import { awsErrorCode, classifyAwsError } from "./errors";
 import { globalRegionFor } from "./regions-catalog";
 import { AwsSession } from "./session";
@@ -35,7 +35,7 @@ export function buildSessionName(purpose: string, id: string): string {
 }
 
 async function callAssumeRole(p: AssumeRoleParams): Promise<AwsCredentialIdentity> {
-  const sts = createPlatformClient(STSClient, getEnv().PLATFORM_AWS_REGION, "sts");
+  const sts = createPlatformClient(STSClient, await platformRegion(), "sts", await platformCredentials());
   try {
     const res = await sts.send(
       new AssumeRoleCommand({
@@ -81,7 +81,7 @@ export async function assumeRoleSession(p: AssumeRoleParams): Promise<AwsSession
   return new AwsSession({
     accountId: p.expectedAccountId,
     partition: p.partition,
-    kind: getEnv().AWS_MODE === "fixtures" ? "fixture" : "assumed-role",
+    kind: awsMode() === "fixtures" ? "fixture" : "assumed-role",
     sessionName: p.sessionName,
     credentials,
     refresh: () => callAssumeRole(p),
@@ -98,7 +98,7 @@ export function accessKeySession(p: {
   return new AwsSession({
     accountId: p.accountId,
     partition: p.partition,
-    kind: getEnv().AWS_MODE === "fixtures" ? "fixture" : "access-key",
+    kind: awsMode() === "fixtures" ? "fixture" : "access-key",
     sessionName: "stratus-access-key",
     credentials: { accessKeyId: p.accessKeyId, secretAccessKey: p.secretAccessKey },
   });

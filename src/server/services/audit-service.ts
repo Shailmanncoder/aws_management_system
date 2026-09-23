@@ -33,6 +33,9 @@ export const AUDIT = {
   ACTION_REQUESTED: "aws_action.requested",
   ACTION_COMPLETED: "aws_action.completed",
   ACTION_MODE_CHANGED: "org.action_mode_changed",
+  PLATFORM_CREDENTIALS_SET: "platform.credentials_set",
+  PLATFORM_CREDENTIALS_CLEARED: "platform.credentials_cleared",
+  PLATFORM_CREDENTIALS_REJECTED: "platform.credentials_rejected",
 } as const;
 
 export type AuditAction = (typeof AUDIT)[keyof typeof AUDIT];

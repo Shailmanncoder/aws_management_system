@@ -9,6 +9,7 @@ import { awsErrorCode, classifyAwsError } from "../aws/errors";
 import { withRetry } from "../aws/retry";
 import { getDb } from "../db";
 import { getEnv } from "../env";
+import { awsMode } from "../aws/platform-credentials";
 import { AppError, isAppError } from "../errors";
 import { logger } from "../logging/logger";
 import { openAwsSession } from "../services/aws-session-service";
@@ -141,7 +142,7 @@ export async function runInventorySync(job: SyncJob, deps: SyncDeps): Promise<Sy
     await db.$transaction(async (tx) => { await deps.fence?.(tx); await tx.awsAccount.updateMany({
       where: { id: accountRefId, organizationId },
       // Record which mode produced this data, so the UI can say whether what it shows is real.
-      data: { syncStatus: status, syncError: errorSummary, ...(status !== "FAILED" ? { lastSyncedAt: new Date(), syntheticData: getEnv().AWS_MODE === "fixtures" } : {}) },
+      data: { syncStatus: status, syncError: errorSummary, ...(status !== "FAILED" ? { lastSyncedAt: new Date(), syntheticData: awsMode() === "fixtures" } : {}) },
     }); });
     if (status !== "FAILED") {
       const analysis = await runPostSyncAnalyzers({ organizationId, accountRefId, session, regions, inventoryStartedAt: started, inventoryGaps: progress.filter((p) => p.status === "failed" || p.status === "denied").map((p) => `${p.collector}: ${p.region}`), heartbeat: deps.heartbeat, fence: deps.fence });

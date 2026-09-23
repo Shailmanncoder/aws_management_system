@@ -11,9 +11,14 @@ export async function register() {
     const env = getEnv();
     logger.info("server starting", { appEnv: env.APP_ENV, awsMode: env.AWS_MODE, encryption: env.ENCRYPTION_PROVIDER });
     const { verifyPlatformIdentity } = await import("./server/aws/platform-identity");
-    await verifyPlatformIdentity();
-    if (env.AWS_MODE === "fixtures") {
-      logger.warn("AWS_MODE=fixtures: AWS data is synthetic test fixture data and is labelled as such in the UI");
+    // Also primes the platform-credential cache, which decides the effective AWS mode.
+    const status = await verifyPlatformIdentity();
+    const { awsMode } = await import("./server/aws/platform-credentials");
+    if (status === "not-configured") {
+      logger.warn("platform AWS credentials are not set; connect them in Settings to enable AWS features");
+    }
+    if (awsMode() === "fixtures") {
+      logger.warn("fixture mode: AWS data is synthetic test fixture data and is labelled as such in the UI");
     }
   } catch (err) {
     // Message lists variable names only (never values).

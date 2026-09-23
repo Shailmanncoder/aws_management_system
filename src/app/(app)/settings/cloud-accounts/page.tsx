@@ -2,6 +2,10 @@ import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConnectionStatusBadge } from "@/components/aws/connection-status";
+import { PlatformCredentialsForm } from "@/components/aws/platform-credentials-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KNOWN_REGIONS } from "@/lib/regions";
+import { getPlatformSetup } from "@/server/services/platform-setup-service";
 import { SyncStatusText } from "@/components/aws/sync-status";
 import { EmptyState, NoAccess } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
@@ -16,9 +20,22 @@ export default async function CloudAccountsPage() {
   if (!access) return <NoAccess what="cloud accounts" />;
   const accounts = await listAwsAccounts(access);
   const canConnect = access.can("aws_accounts:connect");
+  // Only the installing Owner of a single-workspace deployment may set platform credentials;
+  // for anyone else the service refuses and the card is simply not shown.
+  const platform = await getPlatformSetup(access).catch(() => null);
 
   return (
     <div className="space-y-4">
+      {platform && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Stratus&apos;s own AWS access</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PlatformCredentialsForm orgId={access.organizationId} initial={platform} regions={[...KNOWN_REGIONS]} />
+          </CardContent>
+        </Card>
+      )}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">AWS accounts connected through a read-only cross-account IAM role.</p>
         {canConnect && (

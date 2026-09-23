@@ -61,6 +61,19 @@ export interface CheckCopy {
  * so the wording can be reviewed without reading any database code.
  */
 export const CHECKS: Record<string, CheckCopy> = {
+  platformAccess: {
+    id: "platformAccess",
+    title: "Stratus has not been given its own key to reach Amazon",
+    meaning:
+      "Stratus needs one key of its own before it can talk to Amazon at all. It is separate from the accounts you connect, and you only set it once for the whole site.",
+    whyItMatters: "Without it nothing can be read or refreshed. What you already see stays, but it will never update.",
+    whatToDo: "Open cloud account settings and paste a read-only key. Stratus checks it with Amazon before saving, and refuses a main-owner key.",
+    href: "/settings/cloud-accounts",
+    linkLabel: "Set it up",
+    fixKind: "in-app",
+    goodNews: "Stratus has its own key and can reach Amazon.",
+  },
+
   connectAccount: {
     id: "connectAccount",
     title: "No cloud account is connected yet",

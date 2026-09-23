@@ -26,7 +26,7 @@ process.env.STRATUS_SERVICE = "worker";
 
 async function main() {
   const env = getEnv(); // fail fast on invalid configuration
-  await verifyPlatformIdentity(); // live mode: refuse root / mismatched platform credentials
+  await verifyPlatformIdentity(); // live mode: refuse root / mismatched platform credentials; primes the credential cache
   registerAllJobHandlers();
   const workerId = `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
   let stopping = false;

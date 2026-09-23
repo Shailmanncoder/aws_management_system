@@ -1,9 +1,9 @@
 import "server-only";
-import type { HandlerExecutionContext, MetadataBearer, MiddlewareStack } from "@smithy/types";
-import { getEnv } from "../env";
+import type { AwsCredentialIdentity, HandlerExecutionContext, MetadataBearer, MiddlewareStack } from "@smithy/types";
 import { recordAwsCall } from "../observability/metrics";
 import { classifyAwsError } from "./errors";
 import { assertKnownRegion } from "./regions-catalog";
+import { awsMode } from "./platform-credentials";
 import type { AwsSession } from "./session";
 
 /**
@@ -56,13 +56,16 @@ export function createAwsClient<C extends SdkClient>(
 
 /** Platform-identity client (e.g. STS for AssumeRole) using the default provider chain. */
 export function createPlatformClient<C extends SdkClient>(
-  Ctor: new (config: Omit<ClientConfigBase, "credentials">) => C,
+  Ctor: new (config: Omit<ClientConfigBase, "credentials"> & { credentials?: AwsCredentialIdentity }) => C,
   region: string,
   service: string,
+  /** Static credentials configured inside the app; omitted to use the SDK's own provider chain. */
+  credentials?: AwsCredentialIdentity,
 ): C {
   assertKnownRegion(region);
   const client = new Ctor({
     region,
+    ...(credentials ? { credentials } : {}),
     maxAttempts: 3,
     retryMode: "adaptive",
     requestHandler: { connectionTimeout: 3_000, requestTimeout: 15_000 },
@@ -88,7 +91,7 @@ function attachMiddleware(client: SdkClient, service: string, scope: () => { acc
     { step: "initialize", priority: "high", name: "stratusMetrics" },
   );
 
-  if (getEnv().AWS_MODE === "fixtures") {
+  if (awsMode() === "fixtures") {
     client.middlewareStack.add(
       (_next, context: HandlerExecutionContext) => async (args) => {
         const { accountId, region } = scope();

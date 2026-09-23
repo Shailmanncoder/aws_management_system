@@ -736,3 +736,28 @@ model ProvisioningPlan {
   @@index([organizationId, accountId, status], map: "provisioning_plans_org_account_status")
   @@map("provisioning_plans")
 }
+
+/// Platform AWS credentials, set from inside the app instead of by editing deployment
+/// environment variables. Exactly one row (id is a fixed literal).
+///
+/// These are the PLATFORM's own credentials — the identity Stratus uses to call AssumeRole into
+/// customer accounts. They are never a customer's credentials. Both halves are stored with the
+/// same envelope encryption used for connection secrets; the secret is never read back out to a
+/// browser, only used server-side.
+model PlatformCredential {
+  /// Always "singleton": there is one platform identity per deployment.
+  id                 String   @id
+  accessKeyIdEnc     String
+  secretAccessKeyEnc String
+  /// Verified via GetCallerIdentity at save time — not supplied by the user.
+  awsAccountId       String   @db.VarChar(12)
+  principalArn       String
+  region             String
+  verifiedAt         DateTime
+  /// Who configured it, for the audit trail.
+  configuredById     String   @db.Uuid
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("platform_credentials")
+}

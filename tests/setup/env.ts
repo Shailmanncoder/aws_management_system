@@ -5,6 +5,7 @@
 const testEnv: Record<string, string> = {
   APP_ENV: "test",
   APP_URL: "http://localhost:3000",
+  ALLOW_IN_APP_PLATFORM_SETUP: "true",
   DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://stratus:stratus_local_dev_only@127.0.0.1:5432/stratus_test",
   AUTH_SECRET: "test-only-auth-secret-0123456789abcdef0123456789",
   ENCRYPTION_PROVIDER: "local",

@@ -12,6 +12,7 @@ import {
 import { assertCan, authorizeOrg, type OrgAccess } from "@/server/authz/guard";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { awsMode } from "@/server/aws/platform-credentials";
 import { notFound } from "@/server/errors";
 import { decryptSecret, encryptSecret } from "@/server/security/envelope";
 import { generateExternalId } from "@/server/security/crypto";
@@ -239,7 +240,7 @@ export async function enableProvisioning(
   assertCan(a, "provisioning:configure");
   const c = await connection(a, accountId);
   if (enabled) {
-    if (getEnv().AWS_MODE !== "live")
+    if (awsMode() !== "live")
       reject("Provisioning is unavailable in fixture mode.");
     const s = await sessionFor(a, c, true);
     s.dispose();
@@ -320,7 +321,7 @@ export async function makePlan(
   input: { idempotencyKey: string; configuration: Configuration },
 ) {
   assertCan(a, "provisioning:create");
-  if (getEnv().AWS_MODE !== "live")
+  if (awsMode() !== "live")
     reject(
       "Provisioning is unavailable in fixture mode; no simulated resources will be created.",
     );
@@ -444,7 +445,7 @@ export async function applyPlan(
 ) {
   // Re-fetch membership even for callers with an old access object.
   a = await authorizeOrg(a.userId, a.organizationId, "provisioning:create");
-  if (getEnv().AWS_MODE !== "live")
+  if (awsMode() !== "live")
     reject("Provisioning is unavailable in fixture mode.");
   const db = getDb(),
     p = await db.provisioningPlan.findFirst({

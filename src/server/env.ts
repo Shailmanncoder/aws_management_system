@@ -68,6 +68,13 @@ export const envSchema = z
      * default; forbidden when APP_ENV=production (multi-tenant confused-deputy protection).
      */
     ALLOW_PLATFORM_ACCOUNT_CONNECTION: booleanString,
+    /**
+     * Allows the platform's own AWS credentials to be set from inside the app by a workspace
+     * Owner, instead of only from this environment. Off by default: on a multi-tenant deployment
+     * one customer's Owner must never be able to change credentials shared by every customer.
+     * Intended for single-tenant / self-hosted installations.
+     */
+    ALLOW_IN_APP_PLATFORM_SETUP: booleanString,
 
     WORKER_CONCURRENCY: intString(2, 1, 32),
     WORKER_POLL_INTERVAL_MS: intString(3000, 250, 60000),

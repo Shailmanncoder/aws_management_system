@@ -1,5 +1,6 @@
 import "server-only";
 import { CHECKS, type CheckCopy, type CheckUrgency } from "@/lib/checkup";
+import { describePlatformIdentity } from "../aws/platform-credentials";
 import { assertCan, type OrgAccess } from "../authz/guard";
 import { getDb } from "../db";
 
@@ -43,7 +44,8 @@ export async function getCheckup(access: OrgAccess): Promise<Checkup> {
   const db = getDb();
   const organizationId = access.organizationId;
 
-  const [accounts, findingRows, savings, governance, alertRuleCount, user, costRows, lastCostJob] = await Promise.all([
+  const [platform, accounts, findingRows, savings, governance, alertRuleCount, user, costRows, lastCostJob] = await Promise.all([
+    describePlatformIdentity(),
     db.awsAccount.findMany({
       where: { organizationId },
       select: { id: true, syncStatus: true, connection: { select: { status: true } } },
@@ -83,6 +85,12 @@ export async function getCheckup(access: OrgAccess): Promise<Checkup> {
     results.push({ ...copy, ok: state.ok, urgency: state.ok ? "done" : state.urgency, detail: state.detail ?? "", unknown: state.unknown ?? false });
 
   // ── Getting started ──────────────────────────────────────────────────────
+  add(CHECKS.platformAccess!, {
+    ok: platform.configured,
+    urgency: "now",
+    detail: platform.configured ? "" : "No key set for this site",
+  });
+
   add(CHECKS.connectAccount!, {
     ok: connected.length > 0,
     urgency: "now",
