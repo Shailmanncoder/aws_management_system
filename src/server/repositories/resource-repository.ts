@@ -12,6 +12,7 @@ export interface ResourceQuery {
   /** Exact-match filters on normalised attributes (validated keys only — see service). */
   attributeEquals?: Record<string, string>;
   includeDeleted?: boolean;
+  unownedIds?: string[];
   sort?: { field: "name" | "resourceId" | "region" | "state" | "lastSeenAt" | "firstSeenAt"; dir: "asc" | "desc" };
   page: number;
   pageSize: number;
@@ -49,6 +50,7 @@ function where(organizationId: string, q: Omit<ResourceQuery, "page" | "pageSize
   }
   return {
     organizationId,
+    ...(q.unownedIds ? { id: { notIn: q.unownedIds } } : {}),
     resourceType: { in: q.types },
     ...(q.accountRefIds?.length ? { awsAccountRefId: { in: q.accountRefIds } } : {}),
     ...(q.regions?.length ? { region: { in: q.regions } } : {}),

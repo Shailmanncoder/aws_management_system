@@ -114,7 +114,7 @@ export async function runSecurityScan(ctx: PostSyncContext): Promise<void> {
       }
     }
     await tx.awsAccount.updateMany({ where: { organizationId: ctx.organizationId, id: ctx.accountRefId }, data: {
-      securityScannedAt: now, securityCoverage: { gaps, examined, regions: ctx.regions },
+      securityScannedAt: now, securityCoverage: { gaps, examined, regions: ctx.regions, credentialMetadata: signals.accessKeys.ok ? signals.accessKeys.value.map(k => ({ userName: k.userName, keyHint: k.keyHint, ageDays: k.ageDays, active: k.active })) : null },
     } });
   }, { timeout: 60000 });
 }

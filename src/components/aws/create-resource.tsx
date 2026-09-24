@@ -661,6 +661,13 @@ export function CreateResource({
                 Create another resource
               </Button>
             )}
+            <Button variant="outline" disabled={busy} onClick={async () => {
+              setBusy(true); setError("");
+              try {
+                await api(`/api/v1/orgs/${orgId}/operations`, { body: { command: "save", input: { kind: "TEMPLATE", name: `${plan.review.name} template`, payload: plan.review.configuration } } });
+                const { toast } = await import("sonner"); toast.success("Template saved in Operations"); router.refresh();
+              } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+            }}>Save configuration as template</Button>
             <Button variant="outline" disabled={busy} onClick={refresh}>
               Refresh deployment status
             </Button>

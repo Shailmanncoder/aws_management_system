@@ -14,6 +14,11 @@ usable without knowing AWS service names. Switch to detailed mode from the sideb
 Budget warnings and team requests appear in the app; they do not send email or stop AWS spending.
 Projects group whole AWS accounts so costs can be attributed without inventing resource-level totals.
 
+Inventory pages support named **saved views** for filters and sort order, plus **Copy view link**.
+Views are stored in the current browser, separately for each user, workspace, and inventory page.
+Opening a view starts on page one. Shared links require access and the same active workspace.
+CSV exports preserve the active inventory filters.
+
 > **Honest data.** Nothing is fabricated. When AWS does not return data (permission denied, service
 > not enabled, billing unavailable, no CloudWatch datapoints) the UI says so and explains why.
 > Estimates (projections, savings) are labelled as estimates with their basis.
@@ -349,12 +354,18 @@ restore testing: [docs/BACKUPS.md](docs/BACKUPS.md). CI (`.github/workflows/ci.y
 
 ## Known limitations & roadmap
 
+The new [Operations workspace](docs/OPERATIONS.md) implements first versions of all 20 product
+ideas, including resource history, ownership, drift, incidents, shared views, reviewed actions,
+one-time shutdown/start schedules, email notifications, and provisioning templates.
+
+Product ideas and suggested priorities: [Feature roadmap](docs/FEATURE_ROADMAP.md).
+
 - Polling-based inventory (scheduled + manual); EventBridge/Config change streams would give
   near-instant updates.
-- Alert delivery is in-app only; email/Slack/webhooks need an egress proxy + allow-list (SSRF).
+- Alert delivery supports in-app and SMTP email subscriptions from Operations. Slack/webhooks are not implemented.
 - MFA is available per user but not yet enforceable per workspace; SSO/SAML not implemented.
-- Operational actions (start/stop/reboot) have a data model, permissions and IAM template but no UI
-  yet; they remain disabled by default.
+- Resource pages offer lifecycle/configuration controls. Operations adds a separate reviewed-action
+  workflow with action mode disabled by default, a separate role, and second-person approval.
 - Provisioning creates one resource per plan. It does not create internet gateways, NAT gateways,
   routes or route-table associations, so a new VPC has no internet path until you add one yourself
   (the networking walkthrough covers this). Deletion is never offered.

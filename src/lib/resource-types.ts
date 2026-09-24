@@ -199,6 +199,8 @@ export interface RdsInstanceAttrs {
   publiclyAccessible: boolean;
   multiAz: boolean;
   backupRetentionDays: number;
+  latestRestorableTime?: string | null;
+  certificateValidTill?: string | null;
   vpcId: string | null;
   subnetIds: string[];
   securityGroupIds: string[];

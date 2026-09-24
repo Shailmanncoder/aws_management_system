@@ -5,6 +5,8 @@ import { ExportButton } from "@/components/common/export-button";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState, NoAccess } from "@/components/common/states";
 import { FilterBar } from "@/components/data/filter-bar";
+import { SharedInventoryViews } from "@/app/(app)/_components/shared-inventory-views";
+import { InventoryViews } from "@/components/data/inventory-views";
 import { Pagination } from "@/components/data/pagination";
 import { SortHeader } from "@/components/data/sort-header";
 import { StateBadge } from "@/components/data/state-badge";
@@ -20,7 +22,7 @@ import { getPageAccess } from "@/server/services/workspace-context";
 export const metadata: Metadata = { title: "Resources" };
 
 export default async function ResourcesPage({ searchParams }: PageProps<"/resources">) {
-  const { access } = await getPageAccess("inventory:read");
+  const { ctx, access } = await getPageAccess("inventory:read");
   if (!access) return <NoAccess what="the resource inventory" />;
   const raw = await searchParams;
   const params = parseListParams(raw);
@@ -33,9 +35,11 @@ export default async function ResourcesPage({ searchParams }: PageProps<"/resour
       <PageHeader
         title="Resources"
         description="Every resource in the normalised inventory across accounts and regions."
-        actions={<SectionActions access={access} account={raw.account}>{access.can("reports:export") ? <ExportButton orgId={access.organizationId} report="inventory" query={{ q: params.q, type: params.type, region: params.region, account: params.account }} /> : null}</SectionActions>}
+        actions={<SectionActions access={access} account={raw.account}>{access.can("reports:export") ? <ExportButton orgId={access.organizationId} report="inventory" query={{ q: params.q, type: params.type, region: params.region, account: params.account, state: params.state, tag: params.tag, vpc: params.vpc, instanceType: params.instanceType, sort: params.sort, dir: params.dir, unowned: params.unowned }} /> : null}</SectionActions>}
       />
-      <FilterBar facets={[{ param: "type", label: "Type", options: typeOptions }]} />
+      <SharedInventoryViews access={access} path={path} />
+      <InventoryViews userId={ctx.user.id} orgId={access.organizationId} />
+      <FilterBar facets={[{ param: "type", label: "Type", options: typeOptions }, { param: "unowned", label: "Ownership", options: [{ value: "true", label: "No assigned owner" }] }]} />
       {data.total === 0 ? (
         <EmptyState title="No resources found" description="Connect an AWS account and run a sync, or adjust filters." />
       ) : (

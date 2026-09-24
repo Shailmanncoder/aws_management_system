@@ -8,7 +8,13 @@ export async function drainJobs(organizationId: string, max = 20) {
   const results = [];
   for (let i = 0; i < max; i++) {
     // Scoped to this test's organization so other test files' jobs are never picked up.
-    const job = await claimNextJob("test-worker", { organizationId });
+    let job = await claimNextJob("test-worker", { organizationId });
+    if (!job) {
+      // PostgreSQL TIMESTAMP(3) can round a default now() up by a fraction of a
+      // millisecond. Like the real worker, poll once more before calling the queue empty.
+      await new Promise(resolve => setTimeout(resolve, 10));
+      job = await claimNextJob("test-worker", { organizationId });
+    }
     if (!job) break;
     results.push({ job, result: await runJob(job, "test-worker") });
   }

@@ -4,6 +4,8 @@ import { ExportButton } from "@/components/common/export-button";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState, NoAccess } from "@/components/common/states";
 import { FilterBar, type FacetDef } from "@/components/data/filter-bar";
+import { SharedInventoryViews } from "@/app/(app)/_components/shared-inventory-views";
+import { InventoryViews } from "@/components/data/inventory-views";
 import { Pagination } from "@/components/data/pagination";
 import { SortHeader } from "@/components/data/sort-header";
 import { StateBadge } from "@/components/data/state-badge";
@@ -49,7 +51,7 @@ export async function InventoryTablePage({
   rowHref?: (r: ResourceDto) => string | null;
   extraFacets?: FacetDef[];
 }) {
-  const { access } = await getPageAccess("inventory:read");
+  const { ctx, access } = await getPageAccess("inventory:read");
   if (!access) return <NoAccess what={title} />;
   const params = parseListParams(searchParams);
   const tab = tabs.find((t) => t.type === params.type) ?? tabs[0]!;
@@ -60,7 +62,7 @@ export async function InventoryTablePage({
       <PageHeader
         title={title}
         description={description}
-        actions={<SectionActions access={access} account={searchParams.account}>{access.can("reports:export") ? <ExportButton orgId={access.organizationId} report="inventory" query={{ type: tab.type, q: params.q, region: params.region, account: params.account }} /> : null}</SectionActions>}
+        actions={<SectionActions access={access} account={searchParams.account}>{access.can("reports:export") ? <ExportButton orgId={access.organizationId} report="inventory" query={{ type: tab.type, q: params.q, region: params.region, account: params.account, state: params.state, tag: params.tag, vpc: params.vpc, instanceType: params.instanceType, sort: params.sort, dir: params.dir, unowned: params.unowned }} /> : null}</SectionActions>}
       />
       {tabs.length > 1 && (
         <nav aria-label={`${title} types`} className="-mx-1 flex gap-1 overflow-x-auto border-b">
@@ -76,7 +78,9 @@ export async function InventoryTablePage({
           ))}
         </nav>
       )}
-      <FilterBar facets={[{ param: "state", label: "State", options: facets.states.map((s) => ({ value: s, label: s })) }, ...extraFacets]} />
+      <SharedInventoryViews access={access} path={path} />
+      <InventoryViews userId={ctx.user.id} orgId={access.organizationId} />
+      <FilterBar facets={[{ param: "state", label: "State", options: facets.states.map((s) => ({ value: s, label: s })) }, { param: "unowned", label: "Ownership", options: [{ value: "true", label: "No assigned owner" }] }, ...extraFacets]} />
       {data.total === 0 ? (
         <EmptyState title={`No ${RESOURCE_TYPE_LABELS[tab.type]} resources found`} description="Adjust filters, check permission diagnostics for this service, or run a sync." />
       ) : (

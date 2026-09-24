@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard, permission: "org:read" },
+      { href: "/operations", label: "Operations", icon: Gauge, permission: "org:read" },
       { href: "/checkup", label: "Check-up", icon: HeartPulse, permission: "inventory:read" },
       { href: "/resources", label: "Resources", icon: Boxes, permission: "inventory:read" },
     ],

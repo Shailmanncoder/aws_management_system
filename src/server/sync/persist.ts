@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import type { ResourceType } from "@/lib/resource-types";
 import type { NormalizedResource } from "../aws/collectors/types";
+import { changedFields, resourceSnapshot } from "@/lib/operations";
 import { getDb } from "../db";
 
 const BATCH = 200;
@@ -58,6 +59,11 @@ export async function persistCollectorResult(
     );
     await db.$transaction(async (tx) => {
     await fence?.(tx);
+    const previous = await tx.awsResource.findMany({ where: {
+      organizationId: scope.organizationId, awsAccountRefId: scope.awsAccountRefId,
+      OR: unique.map(r => ({ resourceType: r.resourceType, region: r.region, resourceId: r.resourceId })),
+    }, include: { tags: true } });
+    const beforeByKey = new Map(previous.map(r => [`${r.resourceType}|${r.region}|${r.resourceId}`, resourceSnapshot(r)]));
     await tx.$executeRaw`
       INSERT INTO "aws_resources" ("id", "organizationId", "awsAccountRefId", "resourceType", "region", "resourceId",
         "arn", "name", "state", "attributes", "searchText", "firstSeenAt", "lastSeenAt", "deletedAt", "createdAt", "updatedAt")
@@ -84,6 +90,17 @@ export async function persistCollectorResult(
     });
     await tx.resourceTag.deleteMany({ where: { organizationId: scope.organizationId, resourceRefId: { in: ids } } });
     await tx.resourceTag.createMany({ data: tagRows, skipDuplicates: true });
+    for (const r of unique) {
+      const key = `${r.resourceType}|${r.region}|${r.resourceId}`;
+      const before = beforeByKey.get(key);
+      const after = resourceSnapshot({ ...r, tags: Object.entries(r.tags).map(([key, value]) => ({ key, value })) });
+      if (!before || changedFields(before, after).length) await tx.resourceChange.create({ data: {
+        organizationId: scope.organizationId, resourceId: idByKey.get(key)!,
+        kind: !before ? "DISCOVERED" : before.deleted ? "REAPPEARED" : "CHANGED",
+        before: before ? JSON.parse(JSON.stringify(before)) : Prisma.JsonNull,
+        after: JSON.parse(JSON.stringify(after)), observedAt: now,
+      } });
+    }
     }, { timeout: 30000 });
   }
 
@@ -91,17 +108,26 @@ export async function persistCollectorResult(
   // not refreshed during this sync run no longer exists in AWS.
   const stale = await db.$transaction(async (tx) => {
     await fence?.(tx);
-    return tx.awsResource.updateMany({
-    where: {
+    const staleWhere = {
       organizationId: scope.organizationId,
       awsAccountRefId: scope.awsAccountRefId,
       resourceType: { in: result.resourceTypes },
       ...(result.region ? { region: result.region } : {}),
       deletedAt: null,
       lastSeenAt: { lt: syncStartedAt },
-    },
-    data: { deletedAt: now },
-  });
+    };
+    let count = 0;
+    for (;;) {
+      const deleted = await tx.awsResource.findMany({ where: staleWhere, include: { tags: true }, take: BATCH, orderBy: { id: "asc" } });
+      if (!deleted.length) break;
+      await tx.resourceChange.createMany({ data: deleted.map(r => ({
+        organizationId: scope.organizationId, resourceId: r.id, kind: "DELETED",
+        before: JSON.parse(JSON.stringify(resourceSnapshot(r))), after: Prisma.JsonNull, observedAt: now,
+      })) });
+      const changed = await tx.awsResource.updateMany({ where: { ...staleWhere, id: { in: deleted.map(r => r.id) } }, data: { deletedAt: now } });
+      count += changed.count;
+    }
+    return { count };
   });
   return { upserted, markedDeleted: stale.count };
 }

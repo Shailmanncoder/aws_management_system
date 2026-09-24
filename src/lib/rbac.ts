@@ -17,6 +17,7 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
+  "operations:manage",
   "org:read",
   "org:update",
   "org:delete",
@@ -72,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "alerts:acknowledge",
     "reports:export",
     "actions:request",
+    "operations:manage",
   ]),
   PROVISIONER: new Set<Permission>([
     ...READ_BASE,

@@ -33,6 +33,9 @@ model User {
   auditEvents  AuditLog[]
   syncRequests SyncJob[]
   assignedHelp HelpRequest[] @relation("HelpAssignee")
+  workspaceRecords WorkspaceRecord[]
+  operationPlans OperationPlan[] @relation("OperationRequester")
+  approvedOperations OperationPlan[] @relation("OperationApprover")
 
   @@map("users")
 }
@@ -153,6 +156,10 @@ model Organization {
   actionRequests   ActionRequest[]
   businessProjects BusinessProject[]
   helpRequests HelpRequest[]
+  workspaceRecords WorkspaceRecord[]
+  resourceChanges ResourceChange[]
+  operationPlans OperationPlan[]
+  notificationDeliveries NotificationDelivery[]
 
   @@map("organizations")
 }
@@ -328,6 +335,8 @@ model AwsResource {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
+  workspaceRecords WorkspaceRecord[]
+  changes ResourceChange[]
   tags             ResourceTag[]
   securityFindings SecurityFinding[]
   optimizations    OptimizationFinding[]
@@ -839,4 +848,80 @@ model CloudConnection {
   @@unique([organizationId, provider, externalId])
   @@index([organizationId, provider])
   @@map("cloud_connections")
+}
+
+/// Validated operations documents. Kind-specific payloads are checked at service boundaries.
+model WorkspaceRecord {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  resource AwsResource? @relation(fields: [resourceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  deliveries NotificationDelivery[]
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  kind String
+  name String
+  userId String @db.Uuid
+  shared Boolean @default(true)
+  resourceId String? @db.Uuid
+  payload Json
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, kind, updatedAt])
+  @@index([organizationId, resourceId])
+  @@map("workspace_records")
+}
+
+model ResourceChange {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  resource AwsResource @relation(fields: [resourceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  resourceId String @db.Uuid
+  kind String
+  before Json?
+  after Json?
+  observedAt DateTime @default(now())
+  @@index([organizationId, resourceId, observedAt])
+  @@map("resource_changes")
+}
+
+/// Immutable operation payload with compare-and-swap state transitions. Never replay ambiguous writes.
+model OperationPlan {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user User @relation("OperationRequester", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  approver User? @relation("OperationApprover", fields: [approvedBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  userId String @db.Uuid
+  name String
+  payload Json
+  status String @default("PENDING")
+  approvedBy String? @db.Uuid
+  approvedAt DateTime?
+  scheduledAt DateTime?
+  expiresAt DateTime
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, status, scheduledAt])
+  @@map("operation_plans")
+}
+
+model NotificationDelivery {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subscription WorkspaceRecord @relation(fields: [subscriptionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  subscriptionId String @db.Uuid
+  eventId String
+  status String @default("PENDING")
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  message String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId, subscriptionId, eventId])
+  @@index([status, nextAttemptAt])
+  @@map("notification_deliveries")
 }

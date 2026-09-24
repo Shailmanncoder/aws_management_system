@@ -78,6 +78,8 @@ export const rdsCollector: Collector = {
           publiclyAccessible: Boolean(d.PubliclyAccessible),
           multiAz: Boolean(d.MultiAZ),
           backupRetentionDays: d.BackupRetentionPeriod ?? 0,
+          latestRestorableTime: d.LatestRestorableTime?.toISOString() ?? null,
+          certificateValidTill: d.CertificateDetails?.ValidTill?.toISOString() ?? null,
           vpcId: d.DBSubnetGroup?.VpcId ?? null,
           subnetIds: (d.DBSubnetGroup?.Subnets ?? []).map((s) => s.SubnetIdentifier).filter((x): x is string => Boolean(x)),
           securityGroupIds: (d.VpcSecurityGroups ?? []).map((g) => g.VpcSecurityGroupId).filter((x): x is string => Boolean(x)),

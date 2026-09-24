@@ -2,7 +2,7 @@
 
 import { Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,7 +28,17 @@ export function FilterBar({ facets = [], searchPlaceholder = "Search name, ID, I
   const [q, setQ] = useState(params.get("q") ?? "");
   const [tag, setTag] = useState(params.get("tag") ?? "");
 
-  const update = (changes: Record<string, string | null>) => {
+  const urlQ = params.get("q") ?? "";
+  const urlTag = params.get("tag") ?? "";
+  const [previousUrl, setPreviousUrl] = useState({ q: urlQ, tag: urlTag });
+  // Navigation (including saved views and Back) must update the visible inputs.
+  if (previousUrl.q !== urlQ || previousUrl.tag !== urlTag) {
+    setPreviousUrl({ q: urlQ, tag: urlTag });
+    setQ(urlQ);
+    setTag(urlTag);
+  }
+
+  const update = useCallback((changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(changes)) {
       if (v === null || v === "") next.delete(k);
@@ -36,15 +46,15 @@ export function FilterBar({ facets = [], searchPlaceholder = "Search name, ID, I
     }
     next.delete("page");
     start(() => router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false }));
-  };
+  }, [params, pathname, router]);
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if ((params.get("q") ?? "") !== q) update({ q: q.trim().slice(0, 128) || null });
+      const search = q.trim().slice(0, 128);
+      if ((params.get("q") ?? "") !== search) update({ q: search || null });
     }, 350);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [q, params, update]);
 
   const hasFilters = facets.some((f) => params.get(f.param)) || params.get("q") || params.get("tag");
 

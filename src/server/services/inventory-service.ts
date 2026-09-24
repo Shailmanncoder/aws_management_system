@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { ALL_RESOURCE_TYPES, type ResourceType } from "@/lib/resource-types";
 import { assertCan, type OrgAccess } from "../authz/guard";
+import { getDb } from "../db";
 import { notFound } from "../errors";
 import { countByType, distinctAttribute, distinctValues, findResource, findResourcesByAwsIds, listResources, type ResourceQuery, type ResourceRow } from "../repositories/resource-repository";
 import { regionSchema, searchTermSchema, tagFilterSchema, uuidSchema } from "../validation/common";
@@ -11,6 +12,7 @@ import { regionSchema, searchTermSchema, tagFilterSchema, uuidSchema } from "../
  * (falling back to defaults) so a manipulated query string can never reach the database as-is.
  */
 const PARAM_SCHEMAS = {
+  unowned: z.literal("true"),
   q: searchTermSchema.transform((s) => s.replace(/[%\\]/g, "")),
   account: uuidSchema,
   region: regionSchema,
@@ -65,7 +67,9 @@ export async function listInventory(access: OrgAccess, types: ResourceType[], pa
   if (params.vpc) attributeEquals.vpcId = params.vpc;
   if (params.instanceType) attributeEquals.instanceType = params.instanceType;
   const tag = params.tag ? { key: params.tag.split("=")[0]!, value: params.tag.includes("=") ? params.tag.slice(params.tag.indexOf("=") + 1) : undefined } : undefined;
+  const owners = params.unowned ? await getDb().workspaceRecord.findMany({ where: { organizationId: access.organizationId, kind: "OWNER", resourceId: { not: null } }, select: { resourceId: true } }) : null;
   const query: ResourceQuery = {
+    unownedIds: owners?.flatMap(r => r.resourceId ? [r.resourceId] : []),
     types: params.type && types.includes(params.type) ? [params.type] : types,
     accountRefIds: params.account ? [params.account] : undefined,
     regions: params.region ? [params.region] : undefined,

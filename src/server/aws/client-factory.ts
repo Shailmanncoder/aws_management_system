@@ -39,14 +39,14 @@ export function createAwsClient<C extends SdkClient>(
   region: string,
   service: string,
   /** Service-specific safe options (never endpoints). */
-  extra: { useQueueUrlAsEndpoint?: boolean } = {},
+  extra: { useQueueUrlAsEndpoint?: boolean; maxAttempts?: 1 } = {},
 ): C {
   assertKnownRegion(region);
   const client = new Ctor({
     ...extra,
     region,
     credentials: session.credentialProvider,
-    maxAttempts: 5,
+    maxAttempts: extra.maxAttempts ?? 5,
     retryMode: "adaptive",
     requestHandler: { connectionTimeout: 3_000, requestTimeout: 30_000 },
   });

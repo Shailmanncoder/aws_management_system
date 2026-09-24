@@ -1,4 +1,5 @@
 import "server-only";
+import { costSpikes } from "@/lib/operations-insights";
 import { z } from "zod";
 import type { AlertType, Prisma, Severity } from "@/generated/prisma/client";
 import { assertCan, type OrgAccess } from "../authz/guard";
@@ -191,16 +192,10 @@ export async function evaluateAlerts(organizationId: string, accountRefId: strin
         }
         case "COST_ANOMALY": {
           const cfg = ruleConfigSchemas.COST_ANOMALY.parse(rule.config);
-          const rows = await db.costRecord.findMany({ where: { organizationId, awsAccountRefId: accountRefId, granularity: "DAILY", dimension: "TOTAL" }, orderBy: { periodStart: "desc" }, take: 9, select: { periodStart: true, amount: true } });
-          // Skip today (incomplete); compare the latest complete day with the 7 days before it.
-          const [, latest, ...rest] = rows;
-          if (!latest || rest.length < 7) break;
-          const baseline = rest.slice(0, 7).reduce((s, r) => s + Number(r.amount.toString()), 0) / 7;
-          const value = Number(latest.amount.toString());
-          if (value >= cfg.minDailyAmount && baseline > 0 && value > baseline * (1 + cfg.percentAboveBaseline / 100)) {
-            const pct = Math.round(((value - baseline) / baseline) * 100);
-            const dayKey = latest.periodStart.toISOString().slice(0, 10);
-            emits.push({ type: rule.type, ruleId: rule.id, severity: "MEDIUM", title: `Spend anomaly on ${dayKey}: +${pct}% vs 7-day average (${account.displayName})`, message: `Daily spend ${value.toFixed(2)} vs baseline ${baseline.toFixed(2)}. Signal only — review Cost Explorer for the cause.`, dedupeKey: `anomaly:${accountRefId}:${dayKey}`, context: { pct } });
+          const rows = await db.costRecord.findMany({ where: { organizationId, awsAccountRefId: accountRefId, awsAccount: { costScopeVersion: 1 }, granularity: "DAILY", dimension: { in: ["TOTAL", "SERVICE"] }, periodStart: { gte: new Date(Date.now() - 10 * 86400000) } } });
+          for (const spike of costSpikes(rows.map(r => ({ ...r, amount: Number(r.amount), periodStart: r.periodStart.toISOString() })), new Date(), cfg.percentAboveBaseline, cfg.minDailyAmount)) {
+            const drivers = spike.services.map(s => `${s.service}: ${s.amount.toFixed(2)} ${spike.currency}${s.increase === null ? " (baseline unavailable)" : ` (${s.increase >= 0 ? "+" : ""}${s.increase.toFixed(2)} vs daily baseline)`}`).join("; ");
+            emits.push({ type: rule.type, ruleId: rule.id, severity: "MEDIUM", title: `Spend anomaly on ${spike.day}: +${Math.round(spike.percent)}% (${account.displayName})`, message: `Daily spend ${spike.amount.toFixed(2)} ${spike.currency}; previous 7-day average ${spike.average.toFixed(2)}. ${drivers}. Billing may be delayed or estimated; this is a signal, not a confirmed cause.`, dedupeKey: `anomaly:${accountRefId}:${rule.id}:${spike.currency}:${spike.day}`, context: { pct: Math.round(spike.percent), currency: spike.currency, day: spike.day } });
           }
           break;
         }

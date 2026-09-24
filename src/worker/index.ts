@@ -17,6 +17,8 @@ import { getEnv } from "../server/env";
 import { claimNextJob } from "../server/jobs/queue";
 import { registerAllJobHandlers } from "../server/jobs/register";
 import { runJob } from "../server/jobs/runner";
+import { runScheduledOperations } from "../server/services/operation-plan-service";
+import { queueNotifications, deliverNotifications } from "../server/services/notification-service";
 import { scheduleDueJobs } from "../server/jobs/scheduler";
 import { logger } from "../server/logging/logger";
 import { snapshotMetrics } from "../server/observability/metrics";
@@ -62,6 +64,9 @@ async function main() {
       if (now - lastSchedule > 60_000) {
         lastSchedule = now;
         await scheduleDueJobs();
+        await runScheduledOperations();
+        await queueNotifications();
+        await deliverNotifications();
       }
       if (now - lastHousekeeping > 10 * 60_000) {
         lastHousekeeping = now;
