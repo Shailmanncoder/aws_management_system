@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDiagnosticReply, type DiagnosticIssue } from "@/lib/diagnostic-assistant";
+import { diagnosticQuestionInput } from "@/server/services/diagnostic-assistant-service";
 import { redactString } from "@/server/logging/redact";
 
 describe("private diagnostic assistant", () => {
@@ -16,5 +17,11 @@ describe("private diagnostic assistant", () => {
     const reply = buildDiagnosticReply("Why did synchronization fail?", issues);
     expect(reply).toContain("Production synchronization failed");
     expect(reply).not.toContain("Cost data unavailable");
+  });
+
+  it("accepts only bounded supported screenshot data", () => {
+    expect(diagnosticQuestionInput.safeParse({ question: "What is shown?", image: { mimeType: "image/png", data: "YWJj" } }).success).toBe(true);
+    expect(diagnosticQuestionInput.safeParse({ question: "What is shown?", image: { mimeType: "image/svg+xml", data: "YWJj" } }).success).toBe(false);
+    expect(diagnosticQuestionInput.safeParse({ question: "What is shown?", image: { mimeType: "image/png", data: "not base64!" } }).success).toBe(false);
   });
 });

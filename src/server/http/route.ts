@@ -34,6 +34,8 @@ interface BaseOptions<P, Q, B> {
   rateLimit?: RateLimitPolicyName;
   rateLimitBy?: "user" | "org";
   operation: string;
+  /** Override only for routes that intentionally accept larger validated JSON payloads. */
+  bodyLimitBytes?: number;
 }
 
 interface Ctx<P, Q, B> {
@@ -104,7 +106,7 @@ async function execute<P extends Schema | undefined, Q extends Schema | undefine
       const params = opts.params ? opts.params.parse(restParams) : undefined;
       const query = opts.query ? opts.query.parse(Object.fromEntries(url.searchParams)) : undefined;
       let body: unknown;
-      if (opts.body) body = opts.body.parse(await readJsonBody(req));
+      if (opts.body) body = opts.body.parse(await readJsonBody(req, opts.bodyLimitBytes));
 
       const result = await run(
         { req, requestId, user, params: params as Infer<P>, query: query as Infer<Q>, body: body as Infer<B> },

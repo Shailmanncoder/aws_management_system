@@ -8,7 +8,7 @@ const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
  * Parses a JSON request body with a hard size cap and prototype-pollution protection:
  * `__proto__`, `constructor` and `prototype` keys are rejected outright.
  */
-export async function readJsonBody(req: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<unknown> {
+export async function readJsonBody(req: Request, maxBytes: number = MAX_JSON_BODY_BYTES): Promise<unknown> {
   const declared = Number(req.headers.get("content-length") ?? "0");
   if (declared > maxBytes) throw new AppError("PAYLOAD_TOO_LARGE", "Request body is too large.");
 

@@ -11,6 +11,6 @@ export const GET = orgRoute(
 );
 
 export const POST = orgRoute(
-  { operation: "diagnostic-assistant.ask", permission: "org:read", body: diagnosticQuestionInput, rateLimit: "api" },
+  { operation: "diagnostic-assistant.ask", permission: "org:read", body: diagnosticQuestionInput, bodyLimitBytes: 2_000_000, rateLimit: "api" },
   async ({ access, body }) => askDiagnosticAssistant(access, body),
 );

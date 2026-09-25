@@ -96,6 +96,9 @@ export const envSchema = z
     TRUSTED_PROXY_HOPS: intString(1, 0, 5),
 
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    /** Server-only multimodal assistant. Never expose this value through NEXT_PUBLIC_ variables. */
+    GEMINI_API_KEY: optionalString,
+    GEMINI_MODEL: optionalString,
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
