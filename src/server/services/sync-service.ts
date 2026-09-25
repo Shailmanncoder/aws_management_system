@@ -25,7 +25,14 @@ export async function triggerSync(access: OrgAccess, input: z.infer<typeof trigg
   });
   if (input.accountId && accounts.length === 0) throw notFound("AWS account");
   const eligible = accounts.filter((a) => a.connection && (SYNCABLE as readonly string[]).includes(a.connection.status));
-  if (eligible.length === 0) throw new AppError("PRECONDITION_FAILED", "No connected AWS accounts to synchronize.");
+  if (eligible.length === 0) {
+    throw new AppError(
+      "PRECONDITION_FAILED",
+      accounts.length === 0
+        ? "This workspace has no AWS accounts yet. Connections are shared across devices: sign in with the same Stratus account and select the workspace where AWS was connected, or connect an account in Settings → Cloud accounts."
+        : "No AWS account in this workspace is ready to synchronize. Open Settings → Cloud accounts and finish or repair the connection.",
+    );
+  }
 
   const jobs = [];
   for (const a of eligible) {

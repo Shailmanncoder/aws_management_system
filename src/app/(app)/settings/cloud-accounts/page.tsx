@@ -16,7 +16,7 @@ import { getPageAccess } from "@/server/services/workspace-context";
 export const metadata: Metadata = { title: "Cloud accounts" };
 
 export default async function CloudAccountsPage() {
-  const { access } = await getPageAccess("aws_accounts:read");
+  const { ctx, access } = await getPageAccess("aws_accounts:read");
   if (!access) return <NoAccess what="cloud accounts" />;
   const accounts = await listAwsAccounts(access);
   const canConnect = access.can("aws_accounts:connect");
@@ -38,6 +38,15 @@ export default async function CloudAccountsPage() {
             <PlatformCredentialsForm orgId={access.organizationId} initial={platform} regions={[...KNOWN_REGIONS]} />
           </CardContent>
         </Card>
+      )}
+      {accounts.length > 0 && (
+        <div className="rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm">
+          <p className="font-medium">Your AWS connections work on every device.</p>
+          <p className="mt-1 text-muted-foreground">
+            Sign in with the same Stratus account and select the <strong>{ctx.org.name}</strong> workspace. Connections and synced data belong to the workspace,
+            so you do not need to enter AWS keys again on each device.
+          </p>
+        </div>
       )}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">AWS accounts connected through a read-only cross-account IAM role.</p>
