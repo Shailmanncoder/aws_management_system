@@ -9,6 +9,7 @@ import { ScopeFilter } from "@/components/layout/scope-filter";
 import { getEnv } from "@/server/env";
 import { listAccounts } from "@/server/repositories/aws-account-repository";
 import { getWorkspaceContext } from "@/server/services/workspace-context";
+import { DiagnosticAssistantLauncher } from "@/components/help/diagnostic-assistant-launcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getWorkspaceContext();
@@ -48,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </AppShell>
+    <DiagnosticAssistantLauncher orgId={ctx.org.id} />
     </LiveUpdates></WorkspaceBoundary>
   );
 }
