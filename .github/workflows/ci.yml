@@ -42,7 +42,7 @@ jobs:
         run: |
           PGPASSWORD=stratus_ci_only psql -h 127.0.0.1 -U stratus -d stratus -c "CREATE DATABASE stratus_test" -c "CREATE DATABASE stratus_e2e"
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm ci
